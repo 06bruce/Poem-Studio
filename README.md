@@ -134,7 +134,7 @@ poem-studio-nextjs/
 
 ### Environment Setup
 ```env
-MONGO_URI=mongodb+srv://username:password@cluster.mongodb.net/database
+MONGO_URI=mongodb+srv:......................
 JWT_SECRET=your_strong_secret_key
 NODE_ENV=production
 NEXT_PUBLIC_APP_URL=https://your-domain.com
