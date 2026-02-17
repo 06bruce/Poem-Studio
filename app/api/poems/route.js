@@ -10,6 +10,7 @@ export async function GET(request) {
     await connectDB();
     const poems = await Poem.find()
       .populate('author', 'username')
+      .populate('coAuthors', 'username')
       .sort({ createdAt: -1 })
       .lean();
     return NextResponse.json(poems);
@@ -45,7 +46,7 @@ export async function POST(request) {
     }
 
     const body = await request.json();
-    const { title, content, theme = 'general', mood = 'neutral', source = 'user-created' } = body;
+    const { title, content, theme = 'general', mood = 'neutral', source = 'user-created', coAuthors = [] } = body;
 
     // Validation
     if (!title || !content) {
@@ -71,6 +72,7 @@ export async function POST(request) {
       title,
       content,
       author: decoded.userId,
+      coAuthors: Array.isArray(coAuthors) ? coAuthors : [],
       authorName: user.username,
       theme,
       mood,
@@ -81,6 +83,7 @@ export async function POST(request) {
 
     // Populate author info for response
     await poem.populate('author', 'username');
+    await poem.populate('coAuthors', 'username');
 
     return NextResponse.json(poem);
   } catch (error) {

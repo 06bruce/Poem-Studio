@@ -1,6 +1,6 @@
 'use client';
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { FiPlay, FiSave, FiHeart, FiCopy, FiLoader, FiAlertCircle, FiEdit2 } from 'react-icons/fi'
+import { FiPlay, FiSave, FiHeart, FiCopy, FiLoader, FiAlertCircle, FiEdit2, FiUsers, FiX, FiSearch } from 'react-icons/fi'
 import { useAuth } from '../contexts/AuthContext'
 import { toast } from '../contexts/ToastContext'
 import PoemCard from './PoemCard'
@@ -68,7 +68,10 @@ export default function PoemGenerator({ onSave, showAuthForm, setGlobalMood }) {
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
-  const [formData, setFormData] = useState({ title: '', content: '', theme: 'general', mood: 'neutral' })
+  const [formData, setFormData] = useState({ title: '', content: '', theme: 'general', mood: 'neutral', coAuthors: [] })
+  const [userSearch, setUserSearch] = useState('')
+  const [searchResults, setSearchResults] = useState([])
+  const [isSearching, setIsSearching] = useState(false)
   const mountedRef = useRef(false)
 
   const getPoem = useCallback(async (cat) => {
@@ -109,6 +112,43 @@ export default function PoemGenerator({ onSave, showAuthForm, setGlobalMood }) {
     }
   }, [mode, formData.mood, current?.mood, setGlobalMood])
 
+  const handleUserSearch = async (val) => {
+    setUserSearch(val)
+    if (val.length < 2) {
+      setSearchResults([])
+      return
+    }
+    setIsSearching(true)
+    try {
+      const response = await fetch(`/api/users/search?q=${encodeURIComponent(val)}`)
+      if (response.ok) {
+        const data = await response.json()
+        // Filter out current user and already added co-authors
+        setSearchResults(data.filter(u => u.username !== user?.username && !formData.coAuthors.some(ca => ca._id === u._id)))
+      }
+    } catch (err) {
+      console.error('Search failed:', err)
+    } finally {
+      setIsSearching(false)
+    }
+  }
+
+  const addCoAuthor = (u) => {
+    setFormData(prev => ({
+      ...prev,
+      coAuthors: [...prev.coAuthors, u]
+    }))
+    setUserSearch('')
+    setSearchResults([])
+  }
+
+  const removeCoAuthor = (userId) => {
+    setFormData(prev => ({
+      ...prev,
+      coAuthors: prev.coAuthors.filter(ca => ca._id !== userId)
+    }))
+  }
+
   const handleSave = useCallback(async () => {
     if (!user) {
       showAuthForm()
@@ -135,7 +175,8 @@ export default function PoemGenerator({ onSave, showAuthForm, setGlobalMood }) {
           content: poemData.content,
           theme: poemData.theme || 'general',
           mood: poemData.mood || 'neutral',
-          source: mode === 'create' ? 'user-created' : 'generated'
+          source: mode === 'create' ? 'user-created' : 'generated',
+          coAuthors: mode === 'create' ? formData.coAuthors.map(ca => ca._id) : []
         })
       })
 
@@ -149,7 +190,7 @@ export default function PoemGenerator({ onSave, showAuthForm, setGlobalMood }) {
       onSave(savedPoem)
 
       if (mode === 'create') {
-        setFormData({ title: '', content: '', theme: 'general', mood: 'neutral' })
+        setFormData({ title: '', content: '', theme: 'general', mood: 'neutral', coAuthors: [] })
       }
     } catch (error) {
       console.error('Save error:', error)
@@ -267,6 +308,55 @@ export default function PoemGenerator({ onSave, showAuthForm, setGlobalMood }) {
                 <option value="mysterious">Mysterious</option>
               </select>
             </div>
+          </div>
+
+          <div className="group relative">
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 px-1">Collaborative Verses (Tag Co-authors)</label>
+            <div className="flex flex-wrap gap-2 mb-3">
+              {formData.coAuthors.map(ca => (
+                <div key={ca._id} className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-blue-600/20 border border-blue-500/30 text-blue-300 text-xs font-bold">
+                  <span>@{ca.username}</span>
+                  <button onClick={() => removeCoAuthor(ca._id)} className="hover:text-white transition-colors">
+                    <FiX size={12} />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <div className="relative">
+              <input
+                type="text"
+                value={userSearch}
+                onChange={(e) => handleUserSearch(e.target.value)}
+                placeholder="Search fellow poets to collaborate..."
+                className="w-full px-5 py-3.5 pl-12 rounded-2xl bg-slate-800/50 border border-slate-700/50 focus:border-blue-500/50 text-slate-200 outline-none transition-all duration-300 hover:bg-slate-800 placeholder:text-slate-600"
+              />
+              <FiSearch className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-500" />
+              {isSearching && (
+                <div className="absolute right-5 top-1/2 -translate-y-1/2">
+                  <FiLoader className="animate-spin text-blue-400" size={16} />
+                </div>
+              )}
+            </div>
+
+            {searchResults.length > 0 && (
+              <div className="absolute top-full left-0 w-full mt-2 glass rounded-2xl border border-white/10 shadow-2xl z-50 overflow-hidden animate-fadeIn">
+                {searchResults.map(u => (
+                  <button
+                    key={u._id}
+                    onClick={() => addCoAuthor(u)}
+                    className="w-full flex items-center gap-3 p-4 hover:bg-white/10 transition-colors text-left"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-xs font-bold text-white">
+                      {u.username.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold text-slate-200">@{u.username}</div>
+                      <div className="text-[10px] text-slate-500 truncate max-w-xs">{u.bio || 'Poetic soul'}</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}

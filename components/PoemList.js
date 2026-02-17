@@ -28,7 +28,7 @@ const PoemList = React.forwardRef(({ refreshTrigger }, ref) => {
     try {
       const token = localStorage.getItem('authToken')
       let url = '/api/poems'
-      
+
       if (feedType === 'following' && user) {
         url = '/api/poems/following'
       }
@@ -108,12 +108,12 @@ const PoemList = React.forwardRef(({ refreshTrigger }, ref) => {
           backgroundColor: '#1f2937',
           scale: 2
         })
-        
+
         const link = document.createElement('a')
         link.download = `poem-${poemId}.png`
         link.href = canvas.toDataURL()
         link.click()
-        
+
         toast.success('Poem image saved!')
       }
     } catch (err) {
@@ -183,21 +183,19 @@ const PoemList = React.forwardRef(({ refreshTrigger }, ref) => {
           <div className="flex gap-2">
             <button
               onClick={() => setFeedType('explore')}
-              className={`px-4 py-2 rounded-lg transition ${
-                feedType === 'explore' 
-                  ? 'bg-blue-600 text-white' 
+              className={`px-4 py-2 rounded-lg transition ${feedType === 'explore'
+                  ? 'bg-blue-600 text-white'
                   : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-              }`}
+                }`}
             >
               Explore
             </button>
             <button
               onClick={() => setFeedType('following')}
-              className={`px-4 py-2 rounded-lg transition ${
-                feedType === 'following' 
-                  ? 'bg-blue-600 text-white' 
+              className={`px-4 py-2 rounded-lg transition ${feedType === 'following'
+                  ? 'bg-blue-600 text-white'
                   : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-              }`}
+                }`}
             >
               Following
             </button>
@@ -213,9 +211,20 @@ const PoemList = React.forwardRef(({ refreshTrigger }, ref) => {
       )}
 
       {error && (
-        <div className="p-4 rounded-lg bg-red-900/30 border border-red-500/50 flex items-center gap-2 text-red-200">
-          <FiAlertCircle size={20} />
-          {error}
+        <div className="p-6 rounded-2xl glass border border-red-500/20 flex flex-col items-center gap-4 text-center">
+          <div className="p-3 rounded-full bg-red-500/10 text-red-400">
+            <FiAlertCircle size={32} />
+          </div>
+          <div>
+            <p className="text-red-200 font-medium mb-1">{error}</p>
+            <p className="text-slate-400 text-sm">Our connection to the universe timed out. Try whispering again.</p>
+          </div>
+          <button
+            onClick={fetchPoems}
+            className="px-6 py-2 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-300 font-bold transition-all active:scale-95 border border-red-500/20"
+          >
+            Retry Ripple
+          </button>
         </div>
       )}
 

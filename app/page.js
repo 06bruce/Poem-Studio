@@ -11,6 +11,7 @@ import SignIn from '../components/SignIn'
 import WeatherEffect from '../components/WeatherEffect'
 import UserSearch from '../components/UserSearch'
 import TrendingUsers from '../components/TrendingUsers'
+import StoriesBar from '../components/StoriesBar'
 
 function MainContent() {
   const [mood, setMood] = useState('neutral')
@@ -71,6 +72,7 @@ function MainContent() {
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
           <div className="lg:col-span-8 space-y-12">
+            <StoriesBar />
             <UserSearch />
             <PoemGenerator
               onSave={handlePoemSaved}
