@@ -2,6 +2,7 @@ import './globals.css'
 import { Inter } from 'next/font/google'
 import { AuthProvider } from '../contexts/AuthContext'
 import { ToastProvider } from '../contexts/ToastContext'
+import { SessionProvider } from "next-auth/react"
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -17,11 +18,13 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
-        <ToastProvider>
-          <AuthProvider>
-            {children}
-          </AuthProvider>
-        </ToastProvider>
+        <SessionProvider>
+          <ToastProvider>
+            <AuthProvider>
+              {children}
+            </AuthProvider>
+          </ToastProvider>
+        </SessionProvider>
       </body>
     </html>
   )
