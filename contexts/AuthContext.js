@@ -1,5 +1,6 @@
 'use client';
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useSession, signOut } from "next-auth/react";
 
 const AuthContext = createContext();
 
@@ -44,6 +45,30 @@ export const AuthProvider = ({ children }) => {
       return () => window.removeEventListener('storage', checkAuth);
     }
   }, []);
+
+  const { data: session, status } = useSession();
+
+  // Handle NextAuth session synchronization
+  useEffect(() => {
+    if (status === "authenticated" && session?.user) {
+      const googleUser = {
+        username: session.user.name || session.user.email?.split('@')[0] || 'User',
+        email: session.user.email,
+        image: session.user.image,
+        isGoogle: true
+      };
+
+      setUser(googleUser);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('user', JSON.stringify(googleUser));
+        // We might not have a traditional JWT token for Google users in the same way, 
+        // but the session itself handles auth.
+      }
+    } else if (status === "unauthenticated" && user?.isGoogle) {
+      // If we were logged in via Google but now we aren't, clear the internal state
+      logout();
+    }
+  }, [session, status]);
 
   const signup = async (email, username, password) => {
     try {
@@ -116,6 +141,9 @@ export const AuthProvider = ({ children }) => {
     }
     setUser(null);
     setError(null);
+    if (session) {
+      signOut({ redirect: false });
+    }
   };
 
   // Update user info in context and localStorage

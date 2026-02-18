@@ -84,7 +84,11 @@ export default function Header({ onToggleSnow, showSnow, onAuthClick, onNotifica
                 className="p-2.5 rounded-xl glass hover:bg-slate-700/50 transition-all duration-300 group"
                 title="My Profile"
               >
-                <FiUser className="w-5 h-5 text-slate-400 group-hover:text-blue-400" />
+                {user.image ? (
+                  <img src={user.image} alt={user.username} className="w-6 h-6 rounded-full object-cover" />
+                ) : (
+                  <FiUser className="w-5 h-5 text-slate-400 group-hover:text-blue-400" />
+                )}
               </button>
               <button
                 aria-label="notifications"
