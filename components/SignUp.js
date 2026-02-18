@@ -1,9 +1,9 @@
 'use client';
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { FiMail, FiLock, FiUser, FiAlertCircle } from 'react-icons/fi';
+import { FiMail, FiLock, FiUser, FiAlertCircle, FiArrowLeft } from 'react-icons/fi';
 
-export default function SignUp({ onSuccess, onToggleForm }) {
+export default function SignUp({ onSuccess, onToggleForm, onClose }) {
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -39,6 +39,13 @@ export default function SignUp({ onSuccess, onToggleForm }) {
 
   return (
     <div className="max-w-md mx-auto p-10 rounded-[2.5rem] glass relative overflow-hidden group">
+      <button
+        onClick={onClose}
+        className="absolute top-8 left-8 p-2 rounded-xl bg-slate-800/50 hover:bg-slate-700/50 text-slate-400 hover:text-white transition-all duration-300 z-10"
+        title="Go Back"
+      >
+        <FiArrowLeft size={20} />
+      </button>
       <div className="absolute top-0 right-0 w-32 h-32 bg-purple-600/5 blur-[80px] -z-10 group-hover:bg-purple-600/10 transition-colors duration-700"></div>
 
       <div className="text-center mb-10">

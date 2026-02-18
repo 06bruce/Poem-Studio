@@ -59,11 +59,13 @@ function MainContent() {
                 <SignUp
                   onSuccess={handleAuthSuccess}
                   onToggleForm={toggleAuthForm}
+                  onClose={() => setShowAuth(false)}
                 />
               ) : (
                 <SignIn
                   onSuccess={handleAuthSuccess}
                   onToggleForm={toggleAuthForm}
+                  onClose={() => setShowAuth(false)}
                 />
               )}
             </div>
