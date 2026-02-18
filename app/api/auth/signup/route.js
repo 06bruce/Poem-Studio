@@ -51,15 +51,15 @@ export async function POST(request) {
     }
 
     // Create new user
-    user = new User({ 
-      email: email.toLowerCase().trim(), 
-      username: username.trim(), 
-      password 
+    user = new User({
+      email: email.toLowerCase().trim(),
+      username: username.trim(),
+      password
     });
     await user.save();
 
     const token = generateToken(user._id);
-    
+
     return NextResponse.json({
       token,
       user: {
@@ -69,9 +69,13 @@ export async function POST(request) {
       },
     });
   } catch (error) {
-    console.error('Signup error:', error);
+    console.error('Signup error details:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
     return NextResponse.json(
-      { error: 'Server error' },
+      { error: 'Server error: ' + error.message },
       { status: 500 }
     );
   }
