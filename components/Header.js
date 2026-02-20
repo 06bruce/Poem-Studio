@@ -46,8 +46,8 @@ export default function Header({ onToggleSnow, showSnow, onAuthClick, onNotifica
     }
   }
 
-  const handleLogout = () => {
-    logout()
+  const handleLogout = async () => {
+    await logout()
     toast.success('Logged out successfully')
     window.location.reload()
   }

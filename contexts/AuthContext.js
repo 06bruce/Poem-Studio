@@ -134,7 +134,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('authToken');
       localStorage.removeItem('user');
@@ -142,7 +142,7 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
     setError(null);
     if (session) {
-      signOut({ redirect: false });
+      await signOut({ redirect: false });
     }
   };
 
