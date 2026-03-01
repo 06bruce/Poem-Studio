@@ -1,26 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Poem from '@/lib/models/Poem';
-import { verifyToken } from '@/lib/utils/auth';
+import { getAuthenticatedUser } from '@/lib/utils/auth';
 
 export async function POST(request, { params }) {
   try {
     const { id } = await params;
-    const authHeader = request.headers.get('authorization');
-    const token = authHeader && authHeader.split(' ')[1];
+    const user = await getAuthenticatedUser(request);
 
-    if (!token) {
+    if (!user) {
       return NextResponse.json(
-        { error: 'Access token required' },
+        { error: 'Authentication required' },
         { status: 401 }
-      );
-    }
-
-    const decoded = verifyToken(token);
-    if (!decoded) {
-      return NextResponse.json(
-        { error: 'Invalid access token' },
-        { status: 403 }
       );
     }
 
@@ -34,19 +25,9 @@ export async function POST(request, { params }) {
       );
     }
 
-    // Get user info for the like
-    const { User } = await import('@/lib/models/User');
-    const user = await User.findById(decoded.userId);
-    if (!user) {
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
-      );
-    }
-
     // Check if already liked
     const existingLike = poem.likes.find(like =>
-      like.userId.toString() === decoded.userId
+      like.userId.toString() === user._id.toString()
     );
 
     if (existingLike) {
@@ -58,7 +39,7 @@ export async function POST(request, { params }) {
 
     // Add like
     poem.likes.push({
-      userId: decoded.userId,
+      userId: user._id,
       username: user.username,
       likedAt: new Date()
     });
