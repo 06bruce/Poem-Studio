@@ -2,19 +2,37 @@ import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import User from '@/lib/models/User';
 import { verifyToken } from '@/lib/utils/auth';
+import { auth } from '@/auth';
 
 export async function PATCH(request) {
     try {
-        const authHeader = request.headers.get('authorization');
-        const token = authHeader && authHeader.split(' ')[1];
+        let userId = null;
 
-        if (!token) {
-            return NextResponse.json({ error: 'Access token required' }, { status: 401 });
+        // 1. Try NextAuth session (for Google/OAuth users)
+        const session = await auth();
+        if (session?.user) {
+            await connectDB();
+            const user = await User.findOne({ email: session.user.email });
+            if (user) {
+                userId = user._id;
+            }
         }
 
-        const decoded = verifyToken(token);
-        if (!decoded) {
-            return NextResponse.json({ error: 'Invalid access token' }, { status: 403 });
+        // 2. Try JWT token (for native users) if no session found
+        if (!userId) {
+            const authHeader = request.headers.get('authorization');
+            const token = authHeader && authHeader.split(' ')[1];
+
+            if (token) {
+                const decoded = verifyToken(token);
+                if (decoded) {
+                    userId = decoded.userId;
+                }
+            }
+        }
+
+        if (!userId) {
+            return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
         }
 
         const body = await request.json();
@@ -23,7 +41,7 @@ export async function PATCH(request) {
         await connectDB();
 
         // Find the user
-        const user = await User.findById(decoded.userId);
+        const user = await User.findById(userId);
         if (!user) {
             return NextResponse.json({ error: 'User not found' }, { status: 404 });
         }
