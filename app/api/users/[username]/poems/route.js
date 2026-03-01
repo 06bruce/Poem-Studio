@@ -5,11 +5,12 @@ import User from '@/lib/models/User';
 
 export async function GET(request, { params }) {
   try {
-    const { username } = await params;
+    const { username: rawUsername } = await params;
+    const username = decodeURIComponent(rawUsername);
     await connectDB();
 
-    // First find the user by username
-    const user = await User.findOne({ username });
+    // First find the user by username (case-insensitive)
+    const user = await User.findOne({ username: { $regex: new RegExp(`^${username}$`, 'i') } });
     if (!user) {
       return NextResponse.json(
         { error: 'User not found' },
