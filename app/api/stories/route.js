@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Story from '@/lib/models/Story';
 import User from '@/lib/models/User';
-import { verifyToken } from '@/lib/utils/auth';
+import { getAuthenticatedUser } from '@/lib/utils/auth';
 
 export async function GET(request) {
     try {
@@ -22,16 +22,10 @@ export async function GET(request) {
 
 export async function POST(request) {
     try {
-        const authHeader = request.headers.get('authorization');
-        const token = authHeader && authHeader.split(' ')[1];
+        const user = await getAuthenticatedUser(request);
 
-        if (!token) {
-            return NextResponse.json({ error: 'Access token required' }, { status: 401 });
-        }
-
-        const decoded = verifyToken(token);
-        if (!decoded) {
-            return NextResponse.json({ error: 'Invalid access token' }, { status: 403 });
+        if (!user) {
+            return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
         }
 
         const body = await request.json();
@@ -42,10 +36,6 @@ export async function POST(request) {
         }
 
         await connectDB();
-        const user = await User.findById(decoded.userId);
-        if (!user) {
-            return NextResponse.json({ error: 'User not found' }, { status: 404 });
-        }
 
         const story = new Story({
             userId: user._id,
@@ -65,13 +55,8 @@ export async function POST(request) {
 
 export async function PATCH(request) {
     try {
-        const authHeader = request.headers.get('authorization');
-        const token = authHeader && authHeader.split(' ')[1];
-
-        if (!token) return NextResponse.json({ error: 'Access token required' }, { status: 401 });
-
-        const decoded = verifyToken(token);
-        if (!decoded) return NextResponse.json({ error: 'Invalid access token' }, { status: 403 });
+        const user = await getAuthenticatedUser(request);
+        if (!user) return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
 
         const { storyId, content, colorTheme } = await request.json();
 
@@ -79,7 +64,7 @@ export async function PATCH(request) {
         const story = await Story.findById(storyId);
         if (!story) return NextResponse.json({ error: 'Story not found' }, { status: 404 });
 
-        if (story.userId.toString() !== decoded.userId) {
+        if (story.userId.toString() !== user._id.toString()) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
         }
 
@@ -102,13 +87,8 @@ export async function PATCH(request) {
 
 export async function DELETE(request) {
     try {
-        const authHeader = request.headers.get('authorization');
-        const token = authHeader && authHeader.split(' ')[1];
-
-        if (!token) return NextResponse.json({ error: 'Access token required' }, { status: 401 });
-
-        const decoded = verifyToken(token);
-        if (!decoded) return NextResponse.json({ error: 'Invalid access token' }, { status: 403 });
+        const user = await getAuthenticatedUser(request);
+        if (!user) return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
 
         const { searchParams } = new URL(request.url);
         const storyId = searchParams.get('storyId');
@@ -117,7 +97,7 @@ export async function DELETE(request) {
         const story = await Story.findById(storyId);
         if (!story) return NextResponse.json({ error: 'Story not found' }, { status: 404 });
 
-        if (story.userId.toString() !== decoded.userId) {
+        if (story.userId.toString() !== user._id.toString()) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
         }
 
