@@ -10,7 +10,7 @@ import Header from '../../../components/Header';
 
 export default function UserProfile() {
   const params = useParams();
-  const username = params.username;
+  const username = params.username ? decodeURIComponent(params.username) : '';
   const { user } = useAuth();
   const [profileUser, setProfileUser] = useState(null);
   const [userPoems, setUserPoems] = useState([]);
