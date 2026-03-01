@@ -52,10 +52,11 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     if (status === "authenticated" && session?.user) {
       const googleUser = {
-        username: session.user.name || session.user.email?.split('@')[0] || 'User',
+        username: session.user.username || session.user.name || session.user.email?.split('@')[0] || 'User',
         email: session.user.email,
         image: session.user.image,
-        isGoogle: true
+        isGoogle: true,
+        id: session.user.id || session.user._id
       };
 
       setUser(googleUser);
