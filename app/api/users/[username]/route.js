@@ -4,10 +4,11 @@ import User from '@/lib/models/User';
 
 export async function GET(request, { params }) {
   try {
-    const { username } = await params;
+    const { username: rawUsername } = await params;
+    const username = decodeURIComponent(rawUsername);
     await connectDB();
 
-    const user = await User.findOne({ username })
+    const user = await User.findOne({ username: { $regex: new RegExp(`^${username}$`, 'i') } })
       .select('username bio createdAt followers following')
       .lean();
 
