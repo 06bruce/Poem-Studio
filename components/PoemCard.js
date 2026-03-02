@@ -61,6 +61,12 @@ export default function PoemCard({
   const [selectedLine, setSelectedLine] = React.useState(null)
   const [annotationText, setAnnotationText] = React.useState('')
   const [isAnnotating, setIsAnnotating] = React.useState(false)
+  const [showComments, setShowComments] = React.useState(false)
+  const [commentText, setCommentText] = React.useState('')
+  const [isFinishingComment, setIsFinishingComment] = React.useState(false)
+  const [followersCount, setFollowersCount] = React.useState(poem.author?.followers?.length || 0)
+  const [isFollowing, setIsFollowing] = React.useState(poem.author?.followers?.includes(currentUserId))
+  const [lastTap, setLastTap] = React.useState(0)
   const moodTheme = moodThemes[poem.mood] || moodThemes.neutral
 
   const bg = useMemo(() => {
@@ -128,6 +134,67 @@ export default function PoemCard({
     }
   }
 
+  const handleFollow = async () => {
+    if (!currentUserId) {
+      toast.info('Sign in to follow fellow poets')
+      return
+    }
+    try {
+      const token = localStorage.getItem('authToken')
+      const response = await fetch(`/api/users/${authorName}/follow`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      if (response.ok) {
+        const data = await response.json()
+        setIsFollowing(data.action === 'followed')
+        setFollowersCount(data.followersCount)
+        toast.success(data.action === 'followed' ? `Following @${authorName}` : `Unfollowed @${authorName}`)
+      }
+    } catch (err) {
+      toast.error('Connection to the muse failed')
+    }
+  }
+
+  const handleDoubleTap = (e) => {
+    const now = Date.now()
+    if (now - lastTap < 300) {
+      if (!currentUserLiked) handleLike()
+    }
+    setLastTap(now)
+  }
+
+  const handleComment = async (e) => {
+    e.preventDefault()
+    if (!commentText.trim()) return
+    if (!currentUserId) {
+      toast.info('Sign in to share your thoughts')
+      return
+    }
+
+    setIsFinishingComment(true)
+    try {
+      const token = localStorage.getItem('authToken')
+      const response = await fetch(`/api/poems/${poem._id}/comment`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ content: commentText })
+      })
+      if (response.ok) {
+        toast.success('Thought shared ✨')
+        setCommentText('')
+        // In a real app, we'd update the local poem object or re-fetch
+      }
+    } catch (err) {
+      toast.error('Failed to share thought')
+    } finally {
+      setIsFinishingComment(false)
+    }
+  }
+
   const handleAuthorClick = () => {
     if (authorName !== 'Anonymous') {
       router.push(`/profile/${authorName}`)
@@ -187,291 +254,328 @@ export default function PoemCard({
   }
 
   return (
-    <div className={clsx(
-      'rounded-3xl glass p-8 transition-all duration-500 hover:scale-[1.01] hover:shadow-2xl hover:shadow-black group/card relative overflow-hidden',
-      isNew && 'ring-2 ring-blue-500/50 shadow-lg shadow-blue-500/20'
-    )} style={bg}>
+    <div
+      onDoubleClick={handleDoubleTap}
+      className={clsx(
+        'rounded-3xl glass p-5 sm:p-8 transition-all duration-500 hover:shadow-2xl hover:shadow-black group/card relative overflow-hidden',
+        isNew && 'ring-2 ring-blue-500/50 shadow-lg shadow-blue-500/20'
+      )} style={bg}>
       <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-white/10 to-transparent opacity-0 group-hover/card:opacity-100 transition-opacity"></div>
-      <div className="flex items-start justify-between mb-6">
-        <div className="flex-1">
-          <h3 className="text-2xl font-bold mb-2 text-slate-100 group-hover/card:text-blue-400 transition-colors duration-300">{poem.title}</h3>
-          <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-slate-400">
-            <div className="flex items-center gap-1.5 px-2 py-1 glass-pill bg-white/5">
-              <span>by</span>
-              <button
-                onClick={handleAuthorClick}
-                className="text-slate-200 hover:text-blue-400 transition-colors font-bold"
-              >
+
+      {/* Social Header */}
+      <div className="flex items-center justify-between mb-5">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleAuthorClick}
+            className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500/20 to-purple-600/20 border border-white/10 flex items-center justify-center text-blue-400 font-bold text-sm hover:scale-105 transition-transform"
+          >
+            {authorName.charAt(0).toUpperCase()}
+          </button>
+          <div>
+            <div className="flex items-center gap-2">
+              <button onClick={handleAuthorClick} className="text-sm font-bold text-slate-100 hover:text-blue-400 transition-colors">
                 @{authorName}
               </button>
-              {poem.coAuthors && poem.coAuthors.length > 0 && (
+              {!isAuthor && authorName !== 'Anonymous' && (
                 <>
-                  <span className="text-slate-500 mx-0.5">&</span>
-                  <div className="flex gap-1.5">
-                    {poem.coAuthors.map((ca, idx) => (
-                      <React.Fragment key={ca._id || idx}>
-                        <button
-                          onClick={() => router.push(`/profile/${ca.username || ca}`)}
-                          className="text-slate-200 hover:text-blue-400 transition-colors font-bold"
-                        >
-                          @{ca.username || ca}
-                        </button>
-                        {idx < poem.coAuthors.length - 1 && <span className="text-slate-500">,</span>}
-                      </React.Fragment>
-                    ))}
-                  </div>
+                  <span className="text-slate-600 text-[10px]">•</span>
+                  <button
+                    onClick={handleFollow}
+                    className={clsx(
+                      "text-xs font-bold transition-colors",
+                      isFollowing ? "text-slate-500" : "text-blue-400 hover:text-blue-300"
+                    )}
+                  >
+                    {isFollowing ? 'Following' : 'Follow'}
+                  </button>
                 </>
               )}
             </div>
-            <span className="opacity-30">•</span>
-            <span className="bg-white/5 px-2 py-1 rounded-full">{formatDate(poem.createdAt)}</span>
-            {poem.updatedAt && poem.updatedAt !== poem.createdAt && (
-              <span className="text-slate-500 italic">edited</span>
-            )}
+            <p className="text-[10px] text-slate-500">{formatDate(poem.createdAt)}</p>
           </div>
         </div>
-        <div className="flex items-center gap-1">
+
+        <div className="flex items-center gap-3">
           <div
-            className="w-2.5 h-2.5 rounded-full ring-4 ring-white/5 shadow-lg animate-pulse"
-            style={{ backgroundColor: moodTheme.color, boxShadow: `0 0 10px ${moodTheme.color}50` }}
-            title={`Atmosphere: ${poem.mood || 'neutral'}`}
+            className="w-2 h-2 rounded-full"
+            style={{ backgroundColor: moodTheme.color, boxShadow: `0 0 8px ${moodTheme.color}60` }}
+            title={`Atmosphere: ${poem.mood}`}
           />
+          {isAuthor && !isReadOnly && (
+            <div className="flex items-center gap-1 opacity-0 group-hover/card:opacity-100 transition-opacity">
+              <button onClick={handleEdit} className="p-2 text-slate-400 hover:text-blue-400" aria-label="Edit"><FiEdit2 size={14} /></button>
+              <button onClick={handleDelete} className="p-2 text-slate-400 hover:text-red-400" aria-label="Delete"><FiTrash2 size={14} /></button>
+            </div>
+          )}
         </div>
       </div>
 
-      <div className="mb-8 relative space-y-1">
-        {poemContent.split('\n').map((line, idx) => {
-          const lineAnnotations = poem.annotations?.filter(a => a.lineIndex === idx) || []
-          return (
-            <div key={idx} className="group/line relative flex items-center gap-4">
-              <button
-                onClick={() => setSelectedLine(selectedLine === idx ? null : idx)}
-                className={clsx(
-                  'flex-1 text-left px-3 py-1.5 rounded-lg transition-all duration-300 text-slate-300 italic text-lg opacity-90 hover:bg-white/5 hover:opacity-100',
-                  selectedLine === idx && 'bg-blue-500/10 text-blue-300 opacity-100 ring-1 ring-blue-500/20'
-                )}
-              >
-                {line || '\u00A0'}
-              </button>
+      <div className="mb-6">
+        <h3 className="text-xl sm:text-2xl font-bold mb-4 text-slate-100 leading-tight">{poem.title}</h3>
 
-              {lineAnnotations.length > 0 && (
-                <div className="flex -space-x-2">
-                  {lineAnnotations.slice(0, 3).map((a, ai) => (
-                    <div
-                      key={a._id || ai}
-                      className="w-6 h-6 rounded-full bg-blue-600 border-2 border-slate-900 flex items-center justify-center text-[8px] font-bold text-white shadow-lg"
-                      title={`${a.username}: ${a.content}`}
-                    >
-                      {a.username.charAt(0).toUpperCase()}
-                    </div>
-                  ))}
-                  {lineAnnotations.length > 3 && (
-                    <div className="w-6 h-6 rounded-full bg-slate-800 border-2 border-slate-900 flex items-center justify-center text-[8px] font-bold text-slate-400">
-                      +{lineAnnotations.length - 3}
-                    </div>
+        <div className="mb-8 relative space-y-1">
+          {poemContent.split('\n').map((line, idx) => {
+            const lineAnnotations = poem.annotations?.filter(a => a.lineIndex === idx) || []
+            return (
+              <div key={idx} className="group/line relative flex items-center gap-4">
+                <button
+                  onClick={() => setSelectedLine(selectedLine === idx ? null : idx)}
+                  className={clsx(
+                    'flex-1 text-left px-3 py-1.5 rounded-lg transition-all duration-300 text-slate-300 italic text-base sm:text-lg opacity-90 hover:bg-white/5 hover:opacity-100',
+                    selectedLine === idx && 'bg-blue-500/10 text-blue-300 opacity-100 ring-1 ring-blue-500/20'
                   )}
+                >
+                  {line || '\u00A0'}
+                </button>
+
+                {lineAnnotations.length > 0 && (
+                  <div className="flex -space-x-2">
+                    {lineAnnotations.slice(0, 3).map((a, ai) => (
+                      <div
+                        key={a._id || ai}
+                        className="w-6 h-6 rounded-full bg-blue-600 border-2 border-slate-900 flex items-center justify-center text-[8px] font-bold text-white shadow-lg"
+                        title={`${a.username}: ${a.content}`}
+                      >
+                        {a.username.charAt(0).toUpperCase()}
+                      </div>
+                    ))}
+                    {lineAnnotations.length > 3 && (
+                      <div className="w-6 h-6 rounded-full bg-slate-800 border-2 border-slate-900 flex items-center justify-center text-[8px] font-bold text-slate-400">
+                        +{lineAnnotations.length - 3}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+
+          {selectedLine !== null && (
+            <div className="mt-6 p-6 rounded-2xl glass border border-blue-500/20 shadow-2xl animate-fadeIn">
+              <div className="flex items-center justify-between mb-4">
+                <h5 className="text-xs font-bold text-blue-400 uppercase tracking-widest flex items-center gap-2">
+                  <FiMessageSquare />
+                  Thoughts on Line {selectedLine + 1}
+                </h5>
+                <button onClick={() => setSelectedLine(null)} className="text-slate-500 hover:text-slate-300 min-h-[44px] min-w-[44px] flex items-center justify-center" aria-label="Close annotations">
+                  <FiX size={16} />
+                </button>
+              </div>
+
+              <div className="space-y-4 mb-6 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
+                {(poem.annotations?.filter(a => a.lineIndex === selectedLine) || []).map((a, ai) => (
+                  <div key={a._id || ai} className="p-3 rounded-xl bg-white/5 border border-white/5">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[10px] font-bold text-blue-400">@{a.username}</span>
+                      <span className="text-[9px] text-slate-500">{new Date(a.createdAt).toLocaleDateString()}</span>
+                    </div>
+                    <p className="text-sm text-slate-300 leading-relaxed">{a.content}</p>
+                  </div>
+                ))}
+                {(poem.annotations?.filter(a => a.lineIndex === selectedLine) || []).length === 0 && (
+                  <p className="text-center py-4 text-slate-500 text-sm italic">Be the first to share a thought on this line...</p>
+                )}
+              </div>
+
+              {currentUserId && (
+                <div className="relative">
+                  <textarea
+                    value={annotationText}
+                    onChange={(e) => setAnnotationText(e.target.value)}
+                    placeholder="Share your resonance..."
+                    className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition-all resize-none min-h-[80px]"
+                  />
+                  <button
+                    disabled={!annotationText.trim() || isAnnotating}
+                    onClick={async () => {
+                      setIsAnnotating(true)
+                      try {
+                        const token = localStorage.getItem('authToken')
+                        const response = await fetch(`/api/poems/${poem._id}/annotate`, {
+                          method: 'POST',
+                          headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                          },
+                          body: JSON.stringify({ lineIndex: selectedLine, content: annotationText })
+                        })
+                        if (response.ok) {
+                          toast.success('Your thought has been preserved.')
+                          setAnnotationText('')
+                        }
+                      } catch (err) {
+                        toast.error('Failed to preserve thought')
+                      } finally {
+                        setIsAnnotating(false)
+                      }
+                    }}
+                    className="absolute bottom-3 right-3 p-2.5 rounded-lg bg-blue-600 text-white hover:bg-blue-500 transition-all disabled:opacity-50 disabled:bg-slate-700 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                    aria-label="Send annotation"
+                  >
+                    <FiSend size={14} />
+                  </button>
                 </div>
               )}
             </div>
-          )
-        })}
+          )}
+        </div>
 
-        {selectedLine !== null && (
-          <div className="mt-6 p-6 rounded-2xl glass border border-blue-500/20 shadow-2xl animate-fadeIn">
-            <div className="flex items-center justify-between mb-4">
-              <h5 className="text-xs font-bold text-blue-400 uppercase tracking-widest flex items-center gap-2">
-                <FiMessageSquare />
-                Thoughts on Line {selectedLine + 1}
-              </h5>
-              <button onClick={() => setSelectedLine(null)} className="text-slate-500 hover:text-slate-300">
-                <FiX size={16} />
-              </button>
-            </div>
+        {poem.theme && (
+          <div className="mb-6">
+            <span className="inline-block px-3 py-1 text-[10px] font-bold uppercase tracking-widest rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">
+              {poem.theme}
+            </span>
+          </div>
+        )}
 
-            <div className="space-y-4 mb-6 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
-              {(poem.annotations?.filter(a => a.lineIndex === selectedLine) || []).map((a, ai) => (
-                <div key={a._id || ai} className="p-3 rounded-xl bg-white/5 border border-white/5">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[10px] font-bold text-blue-400">@{a.username}</span>
-                    <span className="text-[9px] text-slate-500">{new Date(a.createdAt).toLocaleDateString()}</span>
+        <div className="flex items-center justify-between pt-4 border-t border-white/5">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={handleLike}
+              className={clsx(
+                'flex items-center gap-2 transition-all duration-300 active:scale-90',
+                currentUserLiked ? 'text-red-500' : 'text-slate-400 hover:text-slate-200'
+              )}
+              aria-label="Like"
+            >
+              <FiHeart size={22} className={clsx(currentUserLiked && 'fill-current')} />
+              <span className="text-xs font-bold">{likeCount > 0 ? likeCount : ''}</span>
+            </button>
+
+            <button
+              onClick={() => setShowComments(!showComments)}
+              className={clsx(
+                'flex items-center gap-2 transition-all duration-300 active:scale-90',
+                showComments ? 'text-blue-400' : 'text-slate-400 hover:text-slate-200'
+              )}
+              aria-label="Comments"
+            >
+              <FiMessageSquare size={22} />
+              <span className="text-xs font-bold">{poem.comments?.length || ''}</span>
+            </button>
+
+            <button
+              onClick={handleCopy}
+              className="text-slate-400 hover:text-slate-200 transition-colors active:scale-90"
+              aria-label="Share"
+            >
+              <FiCopy size={20} />
+            </button>
+          </div>
+
+          <button
+            onClick={handleOpenSaveModal}
+            className="text-slate-400 hover:text-blue-400 transition-colors active:scale-90"
+            aria-label="Save"
+          >
+            <FiBookmark size={22} />
+          </button>
+        </div>
+
+        {/* Social Comments Section */}
+        {showComments && (
+          <div className="mt-5 pt-5 border-t border-white/5 animate-fadeIn">
+            <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar mb-4">
+              {poem.comments?.length > 0 ? (
+                poem.comments.map((comment, ci) => (
+                  <div key={comment._id || ci} className="flex gap-3">
+                    <div className="w-7 h-7 rounded-full bg-slate-800 flex-shrink-0 flex items-center justify-center text-[10px] font-bold text-slate-400">
+                      {comment.username.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className="text-xs font-bold text-slate-200">{comment.username}</span>
+                        <span className="text-[10px] text-slate-600">{formatDate(comment.createdAt)}</span>
+                      </div>
+                      <p className="text-sm text-slate-400 leading-relaxed">{comment.content}</p>
+                    </div>
                   </div>
-                  <p className="text-sm text-slate-300 leading-relaxed">{a.content}</p>
-                </div>
-              ))}
-              {(poem.annotations?.filter(a => a.lineIndex === selectedLine) || []).length === 0 && (
-                <p className="text-center py-4 text-slate-500 text-sm italic">Be the first to share a thought on this line...</p>
+                ))
+              ) : (
+                <p className="text-center py-4 text-slate-600 text-xs italic">No thoughts shared yet. Be the first.</p>
               )}
             </div>
 
             {currentUserId && (
-              <div className="relative">
-                <textarea
-                  value={annotationText}
-                  onChange={(e) => setAnnotationText(e.target.value)}
-                  placeholder="Share your resonance..."
-                  className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-sm text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition-all resize-none min-h-[80px]"
+              <form onSubmit={handleComment} className="relative flex items-center gap-2">
+                <input
+                  type="text"
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  placeholder="Add a comment..."
+                  className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500/30 transition-all"
                 />
                 <button
-                  disabled={!annotationText.trim() || isAnnotating}
-                  onClick={async () => {
-                    setIsAnnotating(true)
-                    try {
-                      const token = localStorage.getItem('authToken')
-                      const response = await fetch(`/api/poems/${poem._id}/annotate`, {
-                        method: 'POST',
-                        headers: {
-                          'Authorization': `Bearer ${token}`,
-                          'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({ lineIndex: selectedLine, content: annotationText })
-                      })
-                      if (response.ok) {
-                        const newAnn = await response.json()
-                        // Update local poem state if possible, or just toast and reset
-                        toast.success('Your thought has been preserved.')
-                        setAnnotationText('')
-                        // Note: Real state update would require a callback to parent
-                      }
-                    } catch (err) {
-                      toast.error('Failed to preserve thought')
-                    } finally {
-                      setIsAnnotating(false)
-                    }
-                  }}
-                  className="absolute bottom-3 right-3 p-2 rounded-lg bg-blue-600 text-white hover:bg-blue-500 transition-all disabled:opacity-50 disabled:bg-slate-700"
+                  type="submit"
+                  disabled={!commentText.trim() || isFinishingComment}
+                  className="text-blue-400 font-bold text-xs disabled:opacity-30 disabled:text-slate-600 px-2"
                 >
-                  <FiSend size={14} />
+                  Post
                 </button>
-              </div>
+              </form>
             )}
           </div>
         )}
-      </div>
 
-      {poem.theme && (
-        <div className="mb-6">
-          <span className="inline-block px-3 py-1 text-[10px] font-bold uppercase tracking-widest rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">
-            {poem.theme}
-          </span>
-        </div>
-      )}
+        {showSaveModal && (
+          <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm animate-fadeIn" onClick={(e) => e.target === e.currentTarget && setShowSaveModal(false)}>
+            <div className="glass rounded-t-3xl sm:rounded-3xl p-6 sm:p-8 w-full sm:max-w-sm sm:mx-4 border border-white/10 shadow-2xl animate-scaleIn max-h-[80vh] overflow-hidden">
+              <h4 className="text-xl font-bold mb-6 text-slate-100 flex items-center gap-2">
+                <FiBookmark className="text-blue-400" />
+                Your Bookshelf
+              </h4>
 
-      <div className="flex items-center justify-between pt-6 border-t border-white/5">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={handleLike}
-            className={clsx(
-              'flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-300 text-xs font-bold active:scale-90',
-              currentUserLiked
-                ? 'bg-red-500 text-white shadow-lg shadow-red-900/40'
-                : 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-slate-200'
-            )}
-          >
-            <FiHeart className={clsx(currentUserLiked && 'fill-current')} />
-            <span>Admire {likeCount > 0 && likeCount}</span>
-          </button>
+              <div className="space-y-3 mb-6 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                {collections.length === 0 ? (
+                  <div className="text-center py-6">
+                    <p className="text-slate-400 text-sm mb-4">No collections yet</p>
+                  </div>
+                ) : (
+                  collections.map(c => (
+                    <button
+                      key={c.name}
+                      onClick={() => handleSaveToCollection(c.name)}
+                      disabled={saving}
+                      className="w-full flex items-center justify-between p-4 rounded-2xl bg-white/5 hover:bg-blue-500/20 border border-white/5 hover:border-blue-500/30 transition-all group/shelf"
+                    >
+                      <span className="text-slate-200 font-medium group-hover/shelf:text-blue-400">{c.name}</span>
+                      <span className="text-[10px] text-slate-500">{c.poems.length} poems</span>
+                    </button>
+                  ))
+                )}
+              </div>
 
-          <button
-            onClick={handleCopy}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 text-slate-400 hover:bg-white/10 hover:text-slate-200 transition-all duration-300 text-xs font-bold active:scale-90"
-          >
-            <FiCopy />
-            <span>Copy</span>
-          </button>
-
-          <button
-            onClick={handleOpenSaveModal}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 text-slate-400 hover:bg-white/10 hover:text-slate-200 transition-all duration-300 text-xs font-bold active:scale-90"
-            title="Add to Bookshelf"
-          >
-            <FiBookmark />
-            <span>Shelf</span>
-          </button>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {extraActions}
-
-          {canEdit && (
-            <button
-              onClick={handleEdit}
-              className="p-2.5 rounded-xl bg-blue-600/10 text-blue-400 hover:bg-blue-600 hover:text-white transition-all duration-300 shadow-sm"
-              title="Edit poem"
-            >
-              <FiEdit2 size={16} />
-            </button>
-          )}
-
-          {isAuthor && !isReadOnly && (
-            <button
-              onClick={handleDelete}
-              className="p-2.5 rounded-xl bg-red-600/10 text-red-400 hover:bg-red-600 hover:text-white transition-all duration-300 shadow-sm"
-              title="Delete poem"
-            >
-              <FiTrash2 size={16} />
-            </button>
-          )}
-        </div>
-      </div>
-
-      {showSaveModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
-          <div className="glass rounded-3xl p-8 w-full max-w-sm border border-white/10 shadow-2xl animate-scaleIn">
-            <h4 className="text-xl font-bold mb-6 text-slate-100 flex items-center gap-2">
-              <FiBookmark className="text-blue-400" />
-              Your Bookshelf
-            </h4>
-
-            <div className="space-y-3 mb-6 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-              {collections.length === 0 ? (
-                <div className="text-center py-6">
-                  <p className="text-slate-400 text-sm mb-4">No collections yet</p>
-                </div>
-              ) : (
-                collections.map(c => (
-                  <button
-                    key={c.name}
-                    onClick={() => handleSaveToCollection(c.name)}
-                    disabled={saving}
-                    className="w-full flex items-center justify-between p-4 rounded-2xl bg-white/5 hover:bg-blue-500/20 border border-white/5 hover:border-blue-500/30 transition-all group/shelf"
-                  >
-                    <span className="text-slate-200 font-medium group-hover/shelf:text-blue-400">{c.name}</span>
-                    <span className="text-[10px] text-slate-500">{c.poems.length} poems</span>
-                  </button>
-                ))
-              )}
-            </div>
-
-            <div className="flex flex-col gap-3">
-              <button
-                onClick={() => {
-                  const name = window.prompt('Collection name:')
-                  if (name) {
-                    fetch('/api/users/collections', {
-                      method: 'POST',
-                      headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
-                        'Content-Type': 'application/json'
-                      },
-                      body: JSON.stringify({ name })
-                    }).then(res => res.ok && fetchCollections())
-                  }
-                }}
-                className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-blue-600/10 text-blue-400 hover:bg-blue-600 hover:text-white transition-all font-bold text-sm"
-              >
-                <FiPlus />
-                Create Collection
-              </button>
-              <button
-                onClick={() => setShowSaveModal(false)}
-                className="w-full py-3 text-slate-400 hover:text-slate-200 transition-colors text-sm font-medium"
-              >
-                Cancel
-              </button>
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={() => {
+                    const name = window.prompt('Collection name:')
+                    if (name) {
+                      fetch('/api/users/collections', {
+                        method: 'POST',
+                        headers: {
+                          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+                          'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ name })
+                      }).then(res => res.ok && fetchCollections())
+                    }
+                  }}
+                  className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-blue-600/10 text-blue-400 hover:bg-blue-600 hover:text-white transition-all font-bold text-sm min-h-[48px]"
+                >
+                  <FiPlus />
+                  Create Collection
+                </button>
+                <button
+                  onClick={() => setShowSaveModal(false)}
+                  className="w-full py-3 text-slate-400 hover:text-slate-200 transition-colors text-sm font-medium min-h-[48px]"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
 }

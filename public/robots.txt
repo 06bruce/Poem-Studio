@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /profile/
+
+Sitemap: https://poem-studio.vercel.app/sitemap.xml

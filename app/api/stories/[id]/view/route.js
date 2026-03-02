@@ -10,7 +10,7 @@ export async function POST(request, { params }) {
         const story = await Story.findByIdAndUpdate(
             storyId,
             { $inc: { views: 1 } },
-            { new: true }
+            { returnDocument: 'after' }
         );
 
         if (!story) {

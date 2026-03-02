@@ -27,7 +27,7 @@ export async function POST(request, { params }) {
         const updatedStory = await Story.findByIdAndUpdate(
             storyId,
             update,
-            { new: true }
+            { returnDocument: 'after' }
         );
 
         return NextResponse.json({

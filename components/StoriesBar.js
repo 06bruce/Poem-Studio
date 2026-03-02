@@ -1,3 +1,4 @@
+'use client';
 import React, { useEffect, useState } from 'react'
 import { FiPlus, FiMessageSquare, FiX, FiSend, FiLoader, FiEdit2, FiTrash2, FiEye, FiHeart, FiSearch, FiCheck } from 'react-icons/fi'
 import { toast } from '../contexts/ToastContext'
