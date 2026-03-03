@@ -182,18 +182,19 @@ export default function StoriesBar() {
     }
 
     return (
-        <div className="mb-12">
-            <div className="flex items-center gap-4 overflow-x-auto pb-4 no-scrollbar scroll-smooth">
+        <div className="mb-12 mt-4 px-4 sm:px-0">
+            <div className="flex items-center gap-6 overflow-x-auto pb-6 no-scrollbar scroll-smooth">
                 {/* Add Story Button */}
                 {user && (
                     <button
                         onClick={() => setShowCreate(true)}
-                        className="flex-shrink-0 flex flex-col items-center gap-2 group"
+                        className="flex-shrink-0 flex flex-col items-center gap-3 group"
                     >
-                        <div className="w-16 h-16 rounded-[1.5rem] glass border-2 border-dashed border-white/20 flex items-center justify-center group-hover:border-blue-500/50 group-hover:bg-blue-500/5 transition-all duration-300">
-                            <FiPlus className="text-slate-400 group-hover:text-blue-400 group-hover:scale-110 transition-all" size={24} />
+                        <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-[2rem] glass border-2 border-dashed border-white/20 flex items-center justify-center group-hover:border-blue-500/50 group-hover:bg-blue-500/10 group-hover:shadow-[0_0_30px_-5px_rgba(59,130,246,0.3)] transition-all duration-500 relative group">
+                            <FiPlus className="text-slate-400 group-hover:text-blue-400 group-hover:scale-125 transition-all duration-500" size={28} />
+                            <div className="absolute inset-0 rounded-[2rem] bg-blue-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500 animate-pulse"></div>
                         </div>
-                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest group-hover:text-slate-300 transition-colors">Add Verse</span>
+                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] group-hover:text-blue-400 transition-colors duration-500">Add Verse</span>
                     </button>
                 )}
 
@@ -202,18 +203,23 @@ export default function StoriesBar() {
                     <button
                         key={story._id}
                         onClick={() => handleViewStory(story)}
-                        className="flex-shrink-0 flex flex-col items-center gap-2 group animate-fadeIn"
+                        className="flex-shrink-0 flex flex-col items-center gap-3 group animate-fadeIn"
                     >
                         <div className={clsx(
-                            "w-16 h-16 rounded-[1.5rem] p-0.5 shadow-lg transition-all duration-300 group-hover:scale-105",
+                            "w-16 h-16 sm:w-20 sm:h-20 rounded-[2rem] p-0.5 shadow-xl transition-all duration-500 group-hover:scale-110 group-hover:-translate-y-1",
                             themes.find(t => t.id === story.colorTheme)?.class || themes[0].class,
-                            "shadow-blue-500/20"
+                            "group-hover:shadow-[0_0_35px_-10px_rgba(59,130,246,0.5)]"
                         )}>
-                            <div className="w-full h-full rounded-[1.4rem] bg-slate-900 border-2 border-slate-900 flex items-center justify-center overflow-hidden">
-                                <span className="text-white font-bold text-lg">{story.username.charAt(0).toUpperCase()}</span>
+                            <div className="w-full h-full rounded-[1.9rem] bg-slate-900 border-2 border-slate-900/50 flex items-center justify-center overflow-hidden relative">
+                                {story.image ? (
+                                    <img src={story.image} alt={story.username} className="w-full h-full object-cover" />
+                                ) : (
+                                    <span className="text-white font-black text-xl sm:text-2xl tracking-tighter drop-shadow-lg">{story.username.charAt(0).toUpperCase()}</span>
+                                )}
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-60"></div>
                             </div>
                         </div>
-                        <span className="text-[10px] font-bold text-slate-400 group-hover:text-blue-400 transition-colors">@{story.username}</span>
+                        <span className="text-[10px] font-black text-slate-400 group-hover:text-white transition-colors duration-500 truncate max-w-[80px]">@{story.username}</span>
                     </button>
                 ))}
 

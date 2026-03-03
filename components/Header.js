@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useEffect } from 'react'
 import Image from 'next/image'
+import Link from 'next/link'
 import { FiSun, FiMoon, FiLogOut, FiBell, FiUser, FiMenu, FiX } from 'react-icons/fi'
 import { useAuth } from '../contexts/AuthContext'
 import { useRouter } from 'next/navigation'
@@ -53,11 +54,11 @@ export default function Header({ onToggleSnow, showSnow, onAuthClick, onNotifica
   }
 
   return (
-    <header className="flex items-center justify-between mb-6 sm:mb-8 px-1 sm:px-2 animate-fadeIn" role="banner">
+    <header className="flex items-center justify-between mb-6 sm:mb-8 px-4 sm:px-6 pt-6 animate-fadeIn" role="banner">
       {/* Logo */}
-      <div className="flex items-center gap-3 sm:gap-4">
-        <div className="relative group">
-          <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl sm:rounded-2xl blur opacity-25 group-hover:opacity-50 transition duration-1000 group-hover:duration-200"></div>
+      <Link href="/" className="flex items-center gap-3 sm:gap-4 group cursor-pointer transition-transform active:scale-95">
+        <div className="relative">
+          <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl sm:rounded-2xl blur opacity-25 group-hover:opacity-75 transition duration-1000 group-hover:duration-200"></div>
           <Image
             src="/logo.jpg"
             alt="Poem Studio Logo"
@@ -68,9 +69,9 @@ export default function Header({ onToggleSnow, showSnow, onAuthClick, onNotifica
         </div>
         <div className="flex flex-col gap-0.5">
           <h1 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tighter text-gradient leading-none">Poem Studio</h1>
-          <p className="text-[8px] sm:text-[10px] md:text-xs text-slate-500 font-bold uppercase tracking-extra-widest hidden xs:block">Sanctuary of Verses</p>
+          <p className="text-[8px] sm:text-[10px] md:text-xs text-slate-500 font-bold uppercase tracking-extra-widest hidden xs:block text-shadow-glow">Sanctuary of Verses</p>
         </div>
-      </div>
+      </Link>
 
       {/* Desktop Actions */}
       <div className="hidden sm:flex flex-wrap gap-3 items-center">

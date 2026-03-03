@@ -84,7 +84,7 @@ function MainContent() {
         onNotificationsClick={() => setActiveTab('activity')}
       />
 
-      <main id="main-content" className="max-w-4xl mx-auto pt-4">
+      <main id="main-content" className="max-w-4xl mx-auto pt-8">
         {activeTab === 'home' && (
           <div className="space-y-6 animate-fadeIn">
             <StoriesBar />
