@@ -88,8 +88,8 @@ export default function Header({ onToggleSnow, showSnow, onAuthClick, onNotifica
                 className="p-2.5 rounded-xl glass hover:bg-slate-700/50 transition-all duration-300 group min-h-[44px] min-w-[44px] flex items-center justify-center"
                 title="My Profile"
               >
-                {user.image ? (
-                  <img src={user.image} alt={`${user.username}'s avatar`} className="w-6 h-6 rounded-full object-cover" />
+                {(user.avatar || user.image) ? (
+                  <img src={user.avatar || user.image} alt={`${user.username}'s avatar`} className="w-6 h-6 rounded-full object-cover" />
                 ) : (
                   <FiUser className="w-5 h-5 text-slate-400 group-hover:text-blue-400" />
                 )}

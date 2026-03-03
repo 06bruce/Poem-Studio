@@ -80,8 +80,12 @@ export default function UserSearch() {
               className="w-full flex items-center gap-3 sm:gap-4 p-3 hover:bg-white/5 rounded-xl cursor-pointer transition-all duration-200 group/item text-left min-h-[52px]"
               role="option"
             >
-              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-white/10 flex items-center justify-center text-blue-400 font-bold text-sm group-hover/item:scale-110 transition-transform flex-shrink-0">
-                {user.username.charAt(0).toUpperCase()}
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full overflow-hidden bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-white/10 flex items-center justify-center text-blue-400 font-bold text-sm group-hover/item:scale-110 transition-transform flex-shrink-0">
+                {user.avatar ? (
+                  <img src={user.avatar} alt={user.username} className="w-full h-full object-cover" />
+                ) : (
+                  user.username.charAt(0).toUpperCase()
+                )}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="font-bold text-slate-100 group-hover/item:text-blue-400 transition-colors text-sm sm:text-base">@{user.username}</div>

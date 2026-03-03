@@ -19,9 +19,9 @@ export async function GET(request) {
         { bio: { $regex: query, $options: 'i' } }
       ]
     })
-    .select('username bio createdAt')
-    .limit(10)
-    .lean();
+      .select('username bio createdAt avatar')
+      .limit(10)
+      .lean();
 
     return NextResponse.json(users);
   } catch (error) {

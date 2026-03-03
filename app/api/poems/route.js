@@ -18,6 +18,8 @@ export async function GET(request) {
     const poems = await Poem.find(query)
       .populate('author', 'username avatar')
       .populate('coAuthors', 'username')
+      .populate('comments.user', 'username avatar')
+      .populate('annotations.userId', 'username avatar')
       .sort({ createdAt: -1 })
       .limit(limit)
       .lean();

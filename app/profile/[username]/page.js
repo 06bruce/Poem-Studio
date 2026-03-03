@@ -23,6 +23,7 @@ export default function UserProfile() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editUsername, setEditUsername] = useState('');
   const [editBio, setEditBio] = useState('');
+  const [editAvatar, setEditAvatar] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
   const [followersCount, setFollowersCount] = useState(0);
@@ -90,12 +91,28 @@ export default function UserProfile() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ username: editUsername, bio: editBio })
+        body: JSON.stringify({
+          username: editUsername,
+          bio: editBio,
+          avatar: editAvatar
+        })
       });
 
       if (response.ok) {
+        const data = await response.json();
         toast.success('Essence preserved');
         setShowEditModal(false);
+
+        // Update local auth context if it's the current user
+        if (user && user.username === profileUser.username) {
+          updateUser({
+            ...user,
+            username: editUsername,
+            bio: editBio,
+            avatar: editAvatar
+          });
+        }
+
         if (editUsername !== username) {
           router.push(`/profile/${editUsername}`);
         } else {
@@ -160,6 +177,21 @@ export default function UserProfile() {
     return poem.likes.some(like => like.userId === user.id || like.userId === user._id);
   };
 
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) { // 2MB limit
+        toast.error('The image is too large. Keep it under 2MB.');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setEditAvatar(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleGoBack = () => router.back();
 
   if (loading) {
@@ -200,8 +232,12 @@ export default function UserProfile() {
         {/* Profile Info Section */}
         <div className="flex flex-col items-center text-center mb-10">
           <div className="relative mb-6 group">
-            <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-4xl shadow-2xl border-4 border-white/10 relative z-10">
-              {profileUser.username.charAt(0).toUpperCase()}
+            <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-full overflow-hidden bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-4xl shadow-2xl border-4 border-white/10 relative z-10">
+              {profileUser.avatar ? (
+                <img src={profileUser.avatar} alt={profileUser.username} className="w-full h-full object-cover" />
+              ) : (
+                profileUser.username.charAt(0).toUpperCase()
+              )}
             </div>
             {streak > 0 && (
               <div className="absolute -top-1 -right-1 z-20 bg-amber-500 text-slate-950 px-3 py-1 rounded-full text-[10px] font-black flex items-center gap-1.5 shadow-lg border-2 border-slate-950 animate-bounce">
@@ -220,6 +256,7 @@ export default function UserProfile() {
                 onClick={() => {
                   setEditUsername(profileUser.username);
                   setEditBio(profileUser.bio || '');
+                  setEditAvatar(profileUser.avatar || '');
                   setShowEditModal(true);
                 }}
                 className="flex-1 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-xs font-bold text-slate-200 hover:bg-white/10 transition-all active:scale-95 flex items-center justify-center gap-2"
@@ -346,9 +383,25 @@ export default function UserProfile() {
       {/* Edit Modal */}
       {showEditModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-xl animate-fadeIn">
-          <div className="bg-slate-900 border border-white/10 rounded-[2.5rem] p-8 w-full max-w-md shadow-2xl animate-scaleIn">
+          <div className="bg-slate-900 border border-white/10 rounded-[2.5rem] p-8 w-full max-w-md shadow-2xl animate-scaleIn max-h-[90vh] overflow-y-auto">
             <h2 className="text-2xl font-black text-white mb-6">Modify Essence</h2>
             <div className="space-y-6">
+              <div className="flex flex-col items-center mb-6">
+                <div className="relative group">
+                  <div className="w-24 h-24 rounded-full overflow-hidden bg-white/5 border border-white/10 flex items-center justify-center text-white font-bold text-2xl mb-4 relative">
+                    {editAvatar ? (
+                      <img src={editAvatar} alt="Preview" className="w-full h-full object-cover" />
+                    ) : (
+                      editUsername.charAt(0).toUpperCase()
+                    )}
+                    <label className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-opacity">
+                      <FiEdit2 size={24} />
+                      <input type="file" className="hidden" accept="image/*" onChange={handleImageChange} />
+                    </label>
+                  </div>
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center">Change Avatar</p>
+                </div>
+              </div>
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2">Username</label>
                 <input

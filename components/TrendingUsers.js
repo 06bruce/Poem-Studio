@@ -56,7 +56,7 @@ export default function TrendingUsers() {
         <FiTrendingUp />
         Trending Users
       </h3>
-      
+
       {users.length === 0 ? (
         <div className="text-center py-4 text-gray-400">
           <FiUsers className="mx-auto mb-2" size={24} />
@@ -71,8 +71,12 @@ export default function TrendingUsers() {
               className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-800/50 cursor-pointer transition"
             >
               <div className="relative">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-semibold text-sm">
-                  {user.username.charAt(0).toUpperCase()}
+                <div className="w-8 h-8 rounded-full overflow-hidden bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-semibold text-sm">
+                  {user.avatar ? (
+                    <img src={user.avatar} alt={user.username} className="w-full h-full object-cover" />
+                  ) : (
+                    user.username.charAt(0).toUpperCase()
+                  )}
                 </div>
                 {index < 3 && (
                   <div className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-500 rounded-full flex items-center justify-center text-xs font-bold text-white">

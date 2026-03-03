@@ -20,6 +20,7 @@ export async function GET(request) {
       {
         $project: {
           username: 1,
+          avatar: 1,
           bio: 1,
           createdAt: 1,
           poemCount: { $size: '$poems' },

@@ -211,8 +211,8 @@ export default function StoriesBar() {
                             "group-hover:shadow-[0_0_35px_-10px_rgba(59,130,246,0.5)]"
                         )}>
                             <div className="w-full h-full rounded-[1.9rem] bg-slate-900 border-2 border-slate-900/50 flex items-center justify-center overflow-hidden relative">
-                                {story.image ? (
-                                    <img src={story.image} alt={story.username} className="w-full h-full object-cover" />
+                                {story.userId?.avatar ? (
+                                    <img src={story.userId.avatar} alt={story.username} className="w-full h-full object-cover" />
                                 ) : (
                                     <span className="text-white font-black text-xl sm:text-2xl tracking-tighter drop-shadow-lg">{story.username.charAt(0).toUpperCase()}</span>
                                 )}

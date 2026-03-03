@@ -9,7 +9,7 @@ export async function GET(request, { params }) {
     await connectDB();
 
     const user = await User.findOne({ username: { $regex: new RegExp(`^${username}$`, 'i') } })
-      .select('username bio createdAt followers following')
+      .select('username bio createdAt followers following avatar currentStreak')
       .lean();
 
     if (!user) {

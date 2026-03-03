@@ -8,7 +8,7 @@ export async function GET(request) {
     try {
         await connectDB();
         const stories = await Story.find()
-            .populate('userId', 'username bio')
+            .populate('userId', 'username bio avatar')
             .populate('mentions', 'username')
             .sort({ createdAt: -1 })
             .limit(20)

@@ -267,9 +267,13 @@ export default function PoemCard({
         <div className="flex items-center gap-3">
           <button
             onClick={handleAuthorClick}
-            className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500/20 to-purple-600/20 border border-white/10 flex items-center justify-center text-blue-400 font-bold text-sm hover:scale-105 transition-transform"
+            className="w-10 h-10 rounded-full overflow-hidden bg-gradient-to-br from-blue-500/20 to-purple-600/20 border border-white/10 flex items-center justify-center text-blue-400 font-bold text-sm hover:scale-105 transition-transform"
           >
-            {authorName.charAt(0).toUpperCase()}
+            {poem.author?.avatar ? (
+              <img src={poem.author.avatar} alt={authorName} className="w-full h-full object-cover" />
+            ) : (
+              authorName.charAt(0).toUpperCase()
+            )}
           </button>
           <div>
             <div className="flex items-center gap-2">
@@ -333,10 +337,14 @@ export default function PoemCard({
                     {lineAnnotations.slice(0, 3).map((a, ai) => (
                       <div
                         key={a._id || ai}
-                        className="w-6 h-6 rounded-full bg-blue-600 border-2 border-slate-900 flex items-center justify-center text-[8px] font-bold text-white shadow-lg"
+                        className="w-6 h-6 rounded-full overflow-hidden bg-blue-600 border-2 border-slate-900 flex items-center justify-center text-[8px] font-bold text-white shadow-lg"
                         title={`${a.username}: ${a.content}`}
                       >
-                        {a.username.charAt(0).toUpperCase()}
+                        {a.userId?.avatar ? (
+                          <img src={a.userId.avatar} alt={a.username} className="w-full h-full object-cover" />
+                        ) : (
+                          (a.username || 'P').charAt(0).toUpperCase()
+                        )}
                       </div>
                     ))}
                     {lineAnnotations.length > 3 && (
@@ -479,8 +487,12 @@ export default function PoemCard({
               {poem.comments?.length > 0 ? (
                 poem.comments.map((comment, ci) => (
                   <div key={comment._id || ci} className="flex gap-3">
-                    <div className="w-7 h-7 rounded-full bg-slate-800 flex-shrink-0 flex items-center justify-center text-[10px] font-bold text-slate-400">
-                      {comment.username.charAt(0).toUpperCase()}
+                    <div className="w-7 h-7 rounded-full overflow-hidden bg-slate-800 flex-shrink-0 flex items-center justify-center text-[10px] font-bold text-slate-400">
+                      {(comment.user?.avatar || comment.avatar) ? (
+                        <img src={comment.user?.avatar || comment.avatar} alt={comment.username} className="w-full h-full object-cover" />
+                      ) : (
+                        comment.username.charAt(0).toUpperCase()
+                      )}
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-0.5">

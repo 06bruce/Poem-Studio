@@ -12,7 +12,7 @@ export async function PATCH(request) {
         }
 
         const body = await request.json();
-        const { username, bio } = body;
+        const { username, bio, avatar } = body;
 
         await connectDB();
 
@@ -29,6 +29,10 @@ export async function PATCH(request) {
             user.bio = bio;
         }
 
+        if (avatar !== undefined) {
+            user.avatar = avatar;
+        }
+
         await user.save();
 
         return NextResponse.json({
@@ -36,7 +40,8 @@ export async function PATCH(request) {
             user: {
                 id: user._id,
                 username: user.username,
-                bio: user.bio
+                bio: user.bio,
+                avatar: user.avatar
             }
         });
     } catch (error) {

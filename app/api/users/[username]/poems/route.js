@@ -20,7 +20,7 @@ export async function GET(request, { params }) {
 
     // Then find poems by that user's ID
     const poems = await Poem.find({ author: user._id })
-      .populate('author', 'username')
+      .populate('author', 'username avatar')
       .sort({ createdAt: -1 })
       .lean();
 
