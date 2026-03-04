@@ -2,8 +2,9 @@
 import React, { useMemo } from 'react'
 import clsx from 'clsx'
 import { useRouter } from 'next/navigation'
-import { FiHeart, FiCopy, FiEdit2, FiTrash2, FiBookmark, FiPlus, FiMessageSquare, FiSend, FiX } from 'react-icons/fi'
+import { FiHeart, FiCopy, FiEdit2, FiTrash2, FiBookmark, FiPlus, FiMessageSquare, FiSend, FiX, FiSearch, FiRefreshCw } from 'react-icons/fi'
 import { toast } from '../contexts/ToastContext'
+import Portal from './Portal'
 
 function hashStringToNum(s) {
   let h = 0
@@ -67,6 +68,14 @@ export default function PoemCard({
   const [followersCount, setFollowersCount] = React.useState(poem.author?.followers?.length || 0)
   const [isFollowing, setIsFollowing] = React.useState(poem.author?.followers?.includes(currentUserId))
   const [lastTap, setLastTap] = React.useState(0)
+  // Share modal state
+  const [showShareModal, setShowShareModal] = React.useState(false)
+  const [shareSearch, setShareSearch] = React.useState('')
+  const [shareResults, setShareResults] = React.useState([])
+  const [shareTarget, setShareTarget] = React.useState(null)
+  const [shareMessage, setShareMessage] = React.useState('')
+  const [isSharing, setIsSharing] = React.useState(false)
+  const [isSearchingUsers, setIsSearchingUsers] = React.useState(false)
   const moodTheme = moodThemes[poem.mood] || moodThemes.neutral
 
   const bg = useMemo(() => {
@@ -103,6 +112,52 @@ export default function PoemCard({
     } else {
       onLike?.(poem._id)
     }
+  }
+
+  // Share: user search
+  const handleShareSearch = async (val) => {
+    setShareSearch(val)
+    if (val.length < 2) { setShareResults([]); return }
+    setIsSearchingUsers(true)
+    try {
+      const token = localStorage.getItem('authToken')
+      const res = await fetch(`/api/users/search?q=${encodeURIComponent(val)}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      if (res.ok) {
+        const users = await res.json()
+        setShareResults(users.filter(u => u._id !== currentUserId))
+      }
+    } catch { } finally { setIsSearchingUsers(false) }
+  }
+
+  // Share: send poem
+  const handleShare = async () => {
+    if (!shareTarget) return
+    setIsSharing(true)
+    try {
+      const token = localStorage.getItem('authToken')
+      const res = await fetch(`/api/poems/${poem._id}/share`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ recipientId: shareTarget._id, message: shareMessage })
+      })
+      if (res.ok) {
+        toast.success(`Shared with @${shareTarget.username} ✨`)
+        setShowShareModal(false)
+        setShareTarget(null)
+        setShareMessage('')
+        setShareSearch('')
+        setShareResults([])
+      } else {
+        const d = await res.json()
+        toast.error(d.error || 'Failed to share')
+      }
+    } catch { toast.error('Failed to share') }
+    finally { setIsSharing(false) }
   }
 
   const handleEdit = () => {
@@ -463,11 +518,14 @@ export default function PoemCard({
             </button>
 
             <button
-              onClick={handleCopy}
+              onClick={() => {
+                if (!currentUserId) { toast.info('Sign in to share'); return }
+                setShowShareModal(true)
+              }}
               className="text-slate-400 hover:text-slate-200 transition-colors active:scale-90"
               aria-label="Share"
             >
-              <FiCopy size={20} />
+              <FiSend size={20} />
             </button>
           </div>
 
@@ -529,63 +587,163 @@ export default function PoemCard({
           </div>
         )}
 
-        {showSaveModal && (
-          <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm animate-fadeIn" onClick={(e) => e.target === e.currentTarget && setShowSaveModal(false)}>
-            <div className="glass rounded-t-3xl sm:rounded-3xl p-6 sm:p-8 w-full sm:max-w-sm sm:mx-4 border border-white/10 shadow-2xl animate-scaleIn max-h-[80vh] overflow-hidden">
-              <h4 className="text-xl font-bold mb-6 text-slate-100 flex items-center gap-2">
-                <FiBookmark className="text-blue-400" />
-                Your Bookshelf
-              </h4>
+        {/* Share Poem Modal */}
+        {showShareModal && (
+          <Portal>
+            <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm animate-fadeIn overflow-y-auto" onClick={(e) => e.target === e.currentTarget && setShowShareModal(false)}>
+              <div className="glass rounded-t-3xl sm:rounded-3xl p-6 sm:p-8 w-full sm:max-w-sm sm:mx-4 border border-white/10 shadow-2xl animate-scaleIn my-8 max-h-[90vh] overflow-y-auto">
+                <h4 className="text-xl font-bold mb-6 text-slate-100 flex items-center gap-2">
+                  <FiSend className="text-blue-400" />
+                  Share Poem
+                </h4>
 
-              <div className="space-y-3 mb-6 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                {collections.length === 0 ? (
-                  <div className="text-center py-6">
-                    <p className="text-slate-400 text-sm mb-4">No collections yet</p>
+                {/* Selected User */}
+                {shareTarget ? (
+                  <div className="flex items-center gap-3 p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 mb-4">
+                    <div className="w-9 h-9 rounded-full overflow-hidden bg-blue-600 flex items-center justify-center text-sm font-bold text-white flex-shrink-0">
+                      {shareTarget.avatar ? <img src={shareTarget.avatar} alt="" className="w-full h-full object-cover" /> : shareTarget.username.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-bold text-white">@{shareTarget.username}</p>
+                    </div>
+                    <button onClick={() => setShareTarget(null)} className="text-slate-400 hover:text-white">
+                      <FiX size={16} />
+                    </button>
                   </div>
                 ) : (
-                  collections.map(c => (
-                    <button
-                      key={c.name}
-                      onClick={() => handleSaveToCollection(c.name)}
-                      disabled={saving}
-                      className="w-full flex items-center justify-between p-4 rounded-2xl bg-white/5 hover:bg-blue-500/20 border border-white/5 hover:border-blue-500/30 transition-all group/shelf"
-                    >
-                      <span className="text-slate-200 font-medium group-hover/shelf:text-blue-400">{c.name}</span>
-                      <span className="text-[10px] text-slate-500">{c.poems.length} poems</span>
-                    </button>
-                  ))
+                  <div className="relative mb-4">
+                    <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={14} />
+                    <input
+                      type="text"
+                      value={shareSearch}
+                      onChange={(e) => handleShareSearch(e.target.value)}
+                      placeholder="Search poets to share with..."
+                      className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-9 pr-4 text-sm text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                      autoFocus
+                    />
+                    {shareResults.length > 0 && (
+                      <div className="mt-2 glass rounded-xl border border-white/10 shadow-2xl overflow-hidden max-h-[200px] overflow-y-auto">
+                        {shareResults.map(u => (
+                          <button
+                            key={u._id}
+                            onClick={() => { setShareTarget(u); setShareSearch(''); setShareResults([]) }}
+                            className="w-full flex items-center gap-3 p-3 hover:bg-white/10 transition-colors text-left"
+                          >
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center text-xs font-bold text-white overflow-hidden flex-shrink-0">
+                              {u.avatar ? <img src={u.avatar} alt="" className="w-full h-full object-cover" /> : u.username.charAt(0).toUpperCase()}
+                            </div>
+                            <span className="text-sm font-bold text-slate-200">@{u.username}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {isSearchingUsers && <p className="text-[10px] text-slate-500 mt-2">Searching...</p>}
+                  </div>
                 )}
-              </div>
 
-              <div className="flex flex-col gap-3">
-                <button
-                  onClick={() => {
-                    const name = window.prompt('Collection name:')
-                    if (name) {
-                      fetch('/api/users/collections', {
-                        method: 'POST',
-                        headers: {
-                          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
-                          'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({ name })
-                      }).then(res => res.ok && fetchCollections())
-                    }
-                  }}
-                  className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-blue-600/10 text-blue-400 hover:bg-blue-600 hover:text-white transition-all font-bold text-sm min-h-[48px]"
-                >
-                  <FiPlus />
-                  Create Collection
-                </button>
-                <button
-                  onClick={() => setShowSaveModal(false)}
-                  className="w-full py-3 text-slate-400 hover:text-slate-200 transition-colors text-sm font-medium min-h-[48px]"
-                >
-                  Cancel
-                </button>
+                {/* Message */}
+                {shareTarget && (
+                  <div className="mb-4">
+                    <input
+                      type="text"
+                      value={shareMessage}
+                      onChange={(e) => setShareMessage(e.target.value)}
+                      placeholder="Add a message (optional)"
+                      maxLength={200}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-slate-200 placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    />
+                  </div>
+                )}
+
+                <div className="flex flex-col gap-3">
+                  {shareTarget && (
+                    <button
+                      onClick={handleShare}
+                      disabled={isSharing}
+                      className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-bold transition-all disabled:opacity-50 active:scale-95 shadow-xl shadow-blue-900/40 min-h-[48px]"
+                    >
+                      {isSharing ? <FiRefreshCw className="animate-spin" size={16} /> : <FiSend size={16} />}
+                      {isSharing ? 'Sending...' : 'Send'}
+                    </button>
+                  )}
+                  <button
+                    onClick={handleCopy}
+                    className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white font-bold transition-all text-sm min-h-[48px]"
+                  >
+                    <FiCopy size={16} />
+                    Copy to clipboard
+                  </button>
+                  <button
+                    onClick={() => setShowShareModal(false)}
+                    className="w-full py-3 text-slate-400 hover:text-slate-200 transition-colors text-sm font-medium min-h-[48px]"
+                  >
+                    Cancel
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
+          </Portal>
+        )}
+
+        {showSaveModal && (
+          <Portal>
+            <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm animate-fadeIn overflow-y-auto" onClick={(e) => e.target === e.currentTarget && setShowSaveModal(false)}>
+              <div className="glass rounded-t-3xl sm:rounded-3xl p-6 sm:p-8 w-full sm:max-w-sm sm:mx-4 border border-white/10 shadow-2xl animate-scaleIn my-8 max-h-[90vh] overflow-y-auto">
+                <h4 className="text-xl font-bold mb-6 text-slate-100 flex items-center gap-2">
+                  <FiBookmark className="text-blue-400" />
+                  Your Bookshelf
+                </h4>
+
+                <div className="space-y-3 mb-6 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                  {collections.length === 0 ? (
+                    <div className="text-center py-6">
+                      <p className="text-slate-400 text-sm mb-4">No collections yet</p>
+                    </div>
+                  ) : (
+                    collections.map(c => (
+                      <button
+                        key={c.name}
+                        onClick={() => handleSaveToCollection(c.name)}
+                        disabled={saving}
+                        className="w-full flex items-center justify-between p-4 rounded-2xl bg-white/5 hover:bg-blue-500/20 border border-white/5 hover:border-blue-500/30 transition-all group/shelf"
+                      >
+                        <span className="text-slate-200 font-medium group-hover/shelf:text-blue-400">{c.name}</span>
+                        <span className="text-[10px] text-slate-500">{c.poems.length} poems</span>
+                      </button>
+                    ))
+                  )}
+                </div>
+
+                <div className="flex flex-col gap-3">
+                  <button
+                    onClick={() => {
+                      const name = window.prompt('Collection name:')
+                      if (name) {
+                        fetch('/api/users/collections', {
+                          method: 'POST',
+                          headers: {
+                            'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+                            'Content-Type': 'application/json'
+                          },
+                          body: JSON.stringify({ name })
+                        }).then(res => res.ok && fetchCollections())
+                      }
+                    }}
+                    className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-blue-600/10 text-blue-400 hover:bg-blue-600 hover:text-white transition-all font-bold text-sm min-h-[48px]"
+                  >
+                    <FiPlus />
+                    Create Collection
+                  </button>
+                  <button
+                    onClick={() => setShowSaveModal(false)}
+                    className="w-full py-3 text-slate-400 hover:text-slate-200 transition-colors text-sm font-medium min-h-[48px]"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          </Portal>
         )}
       </div>
     </div>

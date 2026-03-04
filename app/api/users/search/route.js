@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import User from '@/lib/models/User';
+import { getAuthenticatedUser } from '@/lib/utils/auth';
 
 export async function GET(request) {
   try {
@@ -13,22 +14,20 @@ export async function GET(request) {
 
     await connectDB();
 
+    // Optional: filter out blocked or private users if those features existed
     const users = await User.find({
       $or: [
         { username: { $regex: query, $options: 'i' } },
-        { bio: { $regex: query, $options: 'i' } }
+        { email: { $regex: query, $options: 'i' } }
       ]
     })
-      .select('username bio createdAt avatar')
+      .select('username avatar bio')
       .limit(10)
       .lean();
 
     return NextResponse.json(users);
   } catch (error) {
     console.error('User search error:', error);
-    return NextResponse.json(
-      { error: 'Server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }

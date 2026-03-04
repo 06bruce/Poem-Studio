@@ -44,13 +44,14 @@ export async function POST(request) {
     }
 
     const token = generateToken(user._id);
-    
+
     return NextResponse.json({
       token,
       user: {
         id: user._id,
         email: user.email,
         username: user.username,
+        role: user.role || 'user',
       },
     });
   } catch (error) {

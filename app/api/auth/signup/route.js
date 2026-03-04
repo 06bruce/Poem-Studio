@@ -66,7 +66,8 @@ export async function POST(request) {
         id: user._id,
         email: user.email,
         username: user.username,
-        avatar: user.avatar
+        avatar: user.avatar,
+        role: user.role || 'user',
       },
     });
   } catch (error) {

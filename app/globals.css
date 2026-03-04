@@ -6,14 +6,25 @@
   --color-surface-900: #0f172a;
   --color-surface-800: #1e293b;
   --color-surface-700: #334155;
-  
-  --font-inter: "Inter", sans-serif;
+
+  --font-inter: var(--font-inter), sans-serif;
+  --font-space: var(--font-space), sans-serif;
+  --font-orbitron: var(--font-orbitron), sans-serif;
 }
 
 :root {
   --foreground-rgb: 226, 232, 240;
   --background-rgb: 15, 23, 42;
 }
+
+.font-cosmic {
+  font-family: var(--font-orbitron);
+}
+
+.font-space {
+  font-family: var(--font-space);
+}
+
 
 body {
   color: rgb(var(--foreground-rgb));
@@ -62,6 +73,7 @@ body {
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
@@ -69,19 +81,31 @@ body {
 
 /* Animations */
 @keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0% {
+    background-position: -200% 0;
+  }
+
+  100% {
+    background-position: 200% 0;
+  }
 }
 
 .animate-shimmer {
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.05), transparent);
   background-size: 200% 100%;
   animation: shimmer 2s infinite;
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .animate-fadeIn {
@@ -89,8 +113,15 @@ body {
 }
 
 @keyframes scaleIn {
-  from { opacity: 0; transform: scale(0.95); }
-  to { opacity: 1; transform: scale(1); }
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .animate-scaleIn {
@@ -101,6 +132,7 @@ body {
 .text-gradient {
   background: linear-gradient(to right, #60a5fa, #a855f7);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
@@ -131,14 +163,20 @@ body {
 
 /* Touch-friendly selections */
 @media (pointer: coarse) {
-  button, a, [role="button"] {
+
+  button,
+  a,
+  [role="button"] {
     min-height: 44px;
   }
 }
 
 /* Reduced motion preference */
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+
+  *,
+  *::before,
+  *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
@@ -162,4 +200,18 @@ body {
   body {
     padding-bottom: env(safe-area-inset-bottom);
   }
+}
+
+@keyframes storyProgress {
+  from {
+    width: 0%;
+  }
+
+  to {
+    width: 100%;
+  }
+}
+
+.animate-storyProgress {
+  animation: storyProgress 5s linear forwards;
 }

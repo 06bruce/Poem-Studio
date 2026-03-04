@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { FiSun, FiMoon, FiLogOut, FiBell, FiUser, FiMenu, FiX } from 'react-icons/fi'
+import { FiSun, FiMoon, FiLogOut, FiBell, FiUser, FiMenu, FiX, FiShield } from 'react-icons/fi'
 import { useAuth } from '../contexts/AuthContext'
 import { useRouter } from 'next/navigation'
 import { toast } from '../contexts/ToastContext'
@@ -94,6 +94,15 @@ export default function Header({ onToggleSnow, showSnow, onAuthClick, onNotifica
                   <FiUser className="w-5 h-5 text-slate-400 group-hover:text-blue-400" />
                 )}
               </button>
+              {user.role === 'admin' && (
+                <button
+                  onClick={() => router.push('/admin')}
+                  className="p-2.5 rounded-xl glass hover:bg-blue-500/10 hover:border-blue-500/30 transition-all duration-300 group min-h-[44px] min-w-[44px] flex items-center justify-center"
+                  title="Admin Dashboard"
+                >
+                  <FiShield className="w-5 h-5 text-slate-400 group-hover:text-blue-400" />
+                </button>
+              )}
               <button
                 aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`}
                 onClick={onNotificationsClick}
@@ -177,6 +186,15 @@ export default function Header({ onToggleSnow, showSnow, onAuthClick, onNotifica
                   <FiUser className="w-5 h-5 text-slate-400" />
                   <span className="text-sm text-slate-200">My Profile</span>
                 </button>
+                {user.role === 'admin' && (
+                  <button
+                    onClick={() => { router.push('/admin'); setMobileMenuOpen(false); }}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-blue-500/10 transition-colors text-left min-h-[48px]"
+                  >
+                    <FiShield className="w-5 h-5 text-blue-400" />
+                    <span className="text-sm text-blue-400 font-bold">Admin Sanctuary</span>
+                  </button>
+                )}
                 <button
                   onClick={() => { onNotificationsClick(); setMobileMenuOpen(false); }}
                   className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/5 transition-colors text-left min-h-[48px]"

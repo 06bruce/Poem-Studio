@@ -7,12 +7,18 @@ export default function Notifications({ isOpen, onClose, inline = false }) {
   const { user } = useAuth()
   const [notifications, setNotifications] = useState([])
   const [loading, setLoading] = useState(false)
+  const [sharedPoems, setSharedPoems] = useState([])
+  const [activeTab, setActiveTab] = useState('activity') // 'activity' or 'shared'
 
   useEffect(() => {
     if ((isOpen || inline) && user) {
-      fetchNotifications()
+      if (activeTab === 'activity') {
+        fetchNotifications()
+      } else {
+        fetchSharedPoems()
+      }
     }
-  }, [isOpen, inline, user])
+  }, [isOpen, inline, user, activeTab])
 
   // Close on Escape key
   useEffect(() => {
@@ -40,6 +46,47 @@ export default function Notifications({ isOpen, onClose, inline = false }) {
       console.error('Failed to fetch notifications:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchSharedPoems = async () => {
+    setLoading(true)
+    try {
+      const token = localStorage.getItem('authToken')
+      const response = await fetch('/api/users/shared-poems', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setSharedPoems(data)
+      }
+    } catch (error) {
+      console.error('Failed to fetch shared poems:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const markSharedAsRead = async (sharedPoemId) => {
+    try {
+      const token = localStorage.getItem('authToken')
+      await fetch('/api/users/shared-poems', {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ sharedPoemIds: [sharedPoemId] })
+      })
+
+      setSharedPoems(prev =>
+        prev.map(p => p._id === sharedPoemId ? { ...p, read: true } : p)
+      )
+    } catch (error) {
+      console.error('Failed to mark shared poem as read:', error)
     }
   }
 
@@ -108,42 +155,119 @@ export default function Notifications({ isOpen, onClose, inline = false }) {
         <div className="w-10 h-1 bg-slate-700 rounded-full"></div>
       </div>}
 
+      {/* Tabs */}
+      <div className="flex gap-4 mb-6 border-b border-white/5 px-1">
+        <button
+          onClick={() => setActiveTab('activity')}
+          className={`pb-2 text-xs font-black uppercase tracking-widest transition-all relative ${activeTab === 'activity' ? 'text-blue-400' : 'text-slate-500 hover:text-slate-300'}`}
+        >
+          Activity
+          {activeTab === 'activity' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-400 rounded-full"></div>}
+          {notifications.some(n => !n.read) && <div className="absolute -top-1 -right-2 w-1.5 h-1.5 bg-blue-500 rounded-full"></div>}
+        </button>
+        <button
+          onClick={() => setActiveTab('shared')}
+          className={`pb-2 text-xs font-black uppercase tracking-widest transition-all relative ${activeTab === 'shared' ? 'text-emerald-400' : 'text-slate-500 hover:text-slate-300'}`}
+        >
+          Shared
+          {activeTab === 'shared' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-emerald-400 rounded-full"></div>}
+          {sharedPoems.some(p => !p.read) && <div className="absolute -top-1 -right-2 w-1.5 h-1.5 bg-emerald-500 rounded-full"></div>}
+        </button>
+      </div>
+
       {loading ? (
-        <div className="flex items-center justify-center py-8">
+        <div className="flex items-center justify-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
         </div>
-      ) : notifications.length === 0 ? (
-        <div className="text-center py-12 text-gray-400">
-          <div className="w-16 h-16 rounded-full bg-white/5 mx-auto mb-4 flex items-center justify-center">
-            <FiBell size={24} className="opacity-30" />
+      ) : activeTab === 'activity' ? (
+        notifications.length === 0 ? (
+          <div className="text-center py-12 text-gray-400">
+            <div className="w-16 h-16 rounded-full bg-white/5 mx-auto mb-4 flex items-center justify-center">
+              <FiBell size={24} className="opacity-30" />
+            </div>
+            <p className="font-bold text-slate-200">No activity yet</p>
+            <p className="text-xs text-slate-500 mt-1 max-w-[200px] mx-auto leading-relaxed">When someone appreciates your art, you&apos;ll be notified here</p>
           </div>
-          <p className="font-bold text-slate-200">No activity yet</p>
-          <p className="text-xs text-slate-500 mt-1 max-w-[200px] mx-auto leading-relaxed">When someone appreciates your art, you&apos;ll be notified here</p>
-        </div>
+        ) : (
+          <div className={`space-y-3 ${inline ? "pb-4" : "max-h-[60vh] overflow-y-auto pr-1 custom-scrollbar"}`}>
+            {notifications.map((notification) => (
+              <button
+                key={notification._id}
+                onClick={() => !notification.read && markAsRead(notification._id)}
+                className={`w-full p-4 rounded-2xl cursor-pointer transition text-left group/item relative overflow-hidden ${notification.read ? 'bg-white/5 opacity-70' : 'bg-blue-500/10 border border-blue-500/10'
+                  } hover:bg-white/10 hover:opacity-100 transition-all`}
+              >
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center shrink-0 border border-white/5">
+                    {getNotificationIcon(notification.type)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-slate-200 leading-tight mb-1">{notification.message}</p>
+                    <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">{formatTime(notification.createdAt)}</span>
+                  </div>
+                  {!notification.read && (
+                    <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 shrink-0 shadow-lg shadow-blue-500/50"></div>
+                  )}
+                </div>
+              </button>
+            ))}
+          </div>
+        )
       ) : (
-        <div className={`space-y-3 ${inline ? "pb-4" : "max-h-[60vh] overflow-y-auto pr-1 custom-scrollbar"}`}>
-          {notifications.map((notification) => (
-            <button
-              key={notification._id}
-              onClick={() => !notification.read && markAsRead(notification._id)}
-              className={`w-full p-4 rounded-2xl cursor-pointer transition text-left group/item relative overflow-hidden ${notification.read ? 'bg-white/5 opacity-70' : 'bg-blue-500/10 border border-blue-500/10'
-                } hover:bg-white/10 hover:opacity-100 transition-all`}
-            >
-              <div className="flex items-start gap-4">
-                <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center shrink-0 border border-white/5">
-                  {getNotificationIcon(notification.type)}
+        sharedPoems.length === 0 ? (
+          <div className="text-center py-12 text-gray-400">
+            <div className="w-16 h-16 rounded-full bg-white/5 mx-auto mb-4 flex items-center justify-center">
+              <FiMessageCircle size={24} className="opacity-30 text-emerald-400" />
+            </div>
+            <p className="font-bold text-slate-200">No shared verses</p>
+            <p className="text-xs text-slate-500 mt-1 max-w-[200px] mx-auto leading-relaxed">Verses shared specifically with you will appear here</p>
+          </div>
+        ) : (
+          <div className={`space-y-3 ${inline ? "pb-4" : "max-h-[60vh] overflow-y-auto pr-1 custom-scrollbar"}`}>
+            {sharedPoems.map((shared) => (
+              <div
+                key={shared._id}
+                onClick={() => !shared.read && markSharedAsRead(shared._id)}
+                className={`w-full p-4 rounded-2xl transition text-left relative overflow-hidden group/share ${shared.read ? 'bg-white/5 opacity-80' : 'bg-emerald-500/10 border border-emerald-500/10'
+                  } hover:bg-white/10 hover:opacity-100 transition-all`}
+              >
+                <div className="flex flex-col gap-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-lg bg-emerald-600 flex items-center justify-center text-[10px] font-bold text-white overflow-hidden shadow-lg shadow-emerald-900/20">
+                        {shared.sender?.avatar ? <img src={shared.sender.avatar} className="w-full h-full object-cover" /> : shared.sender?.username?.charAt(0).toUpperCase()}
+                      </div>
+                      <span className="text-xs font-bold text-slate-200">@{shared.sender?.username} shared</span>
+                    </div>
+                    <span className="text-[8px] font-black text-slate-600 uppercase tracking-extra-widest">{formatTime(shared.createdAt)}</span>
+                  </div>
+
+                  <div className="p-3 bg-black/20 rounded-xl border border-white/5">
+                    <p className="text-[10px] font-black text-emerald-400/70 uppercase tracking-widest mb-1 italic">Title</p>
+                    <p className="text-sm font-bold text-white mb-2">{shared.poem?.title}</p>
+                    {shared.message && (
+                      <div className="mt-2 text-xs text-slate-400 bg-white/5 p-2 rounded-lg italic border-l-2 border-emerald-500/30">
+                        &quot;{shared.message}&quot;
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2 mt-1">
+                    <button
+                      onClick={() => window.location.href = `/poem/${shared.poem?.id || shared.poem?._id}`}
+                      className="text-[10px] font-black text-slate-400 hover:text-white uppercase tracking-widest transition-colors flex items-center gap-1"
+                    >
+                      Read verse
+                    </button>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-200 leading-tight mb-1">{notification.message}</p>
-                  <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">{formatTime(notification.createdAt)}</span>
-                </div>
-                {!notification.read && (
-                  <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 shrink-0 shadow-lg shadow-blue-500/50"></div>
+                {!shared.read && (
+                  <div className="absolute top-4 right-4 w-2 h-2 bg-emerald-500 rounded-full shadow-lg shadow-emerald-500/50"></div>
                 )}
               </div>
-            </button>
-          ))}
-        </div>
+            ))}
+          </div>
+        )
       )}
     </div>
   )

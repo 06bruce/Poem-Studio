@@ -64,6 +64,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                     const dbUser = await User.findOne({ email: session.user.email });
                     if (dbUser) {
                         session.user.username = dbUser.username;
+                        session.user.role = dbUser.role || 'user';
                     }
                 } catch (error) {
                     console.error("Error fetching username for session:", error);

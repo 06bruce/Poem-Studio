@@ -7,13 +7,40 @@ import { getAuthenticatedUser } from '@/lib/utils/auth';
 export async function GET(request) {
     try {
         await connectDB();
+
+        // Try to get the authenticated user (optional — guests can still see public)
+        const user = await getAuthenticatedUser(request).catch(() => null);
+
         const stories = await Story.find()
-            .populate('userId', 'username bio avatar')
+            .populate('userId', 'username bio avatar closeFriends')
             .populate('mentions', 'username')
             .sort({ createdAt: -1 })
-            .limit(20)
+            .limit(50)
             .lean();
-        return NextResponse.json(stories);
+
+        // Filter stories by visibility
+        const viewerId = user?._id?.toString();
+        const filtered = stories.filter(story => {
+            if (story.visibility === 'close_friends') {
+                // Only show if viewer is the creator or in the creator's close friends list
+                const creatorId = story.userId?._id?.toString();
+                if (viewerId && creatorId === viewerId) return true;
+                const closeFriends = story.userId?.closeFriends?.map(id => id.toString()) || [];
+                return viewerId && closeFriends.includes(viewerId);
+            }
+            return true; // public
+        });
+
+        // Strip closeFriends from response for privacy
+        const clean = filtered.map(s => {
+            if (s.userId) {
+                const { closeFriends, ...rest } = s.userId;
+                return { ...s, userId: rest };
+            }
+            return s;
+        });
+
+        return NextResponse.json(clean);
     } catch (error) {
         console.error('Fetch stories error:', error);
         return NextResponse.json({ error: 'Server error' }, { status: 500 });
@@ -29,7 +56,7 @@ export async function POST(request) {
         }
 
         const body = await request.json();
-        const { content, colorTheme, mentions = [] } = body;
+        const { content, colorTheme, mentions = [], visibility = 'public' } = body;
 
         if (!content) {
             return NextResponse.json({ error: 'Story content is required' }, { status: 400 });
@@ -42,7 +69,8 @@ export async function POST(request) {
             username: user.username,
             content,
             colorTheme: colorTheme || 'blue',
-            mentions: Array.isArray(mentions) ? mentions : []
+            mentions: Array.isArray(mentions) ? mentions : [],
+            visibility: ['public', 'close_friends'].includes(visibility) ? visibility : 'public',
         });
 
         await story.save();

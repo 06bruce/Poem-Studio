@@ -12,6 +12,7 @@ import StoriesBar from '../components/StoriesBar'
 import BottomNav from '../components/BottomNav'
 import ComposeModal from '../components/ComposeModal'
 import DailyPrompt from '../components/DailyPrompt'
+import Portal from '../components/Portal'
 import { useAuth } from '../contexts/AuthContext'
 import { useRouter } from 'next/navigation'
 
@@ -120,27 +121,33 @@ function MainContent() {
 
       {/* Auth Modal */}
       {showAuth && (
-        <div
-          className="fixed inset-0 bg-slate-950/90 z-[100] flex items-center justify-center backdrop-blur-xl animate-fadeIn p-4"
-          onClick={(e) => e.target === e.currentTarget && setShowAuth(false)}
-        >
-          <div className="bg-slate-900 rounded-[2.5rem] p-2 max-h-[90vh] overflow-y-auto shadow-2xl shadow-black ring-1 ring-white/10 w-full max-w-md">
-            {isSigningUp ? (
-              <SignUp onSuccess={handleAuthSuccess} onToggleForm={toggleAuthForm} onClose={() => setShowAuth(false)} />
-            ) : (
-              <SignIn onSuccess={handleAuthSuccess} onToggleForm={toggleAuthForm} onClose={() => setShowAuth(false)} />
-            )}
+        <Portal>
+          <div
+            className="fixed inset-0 bg-slate-950/90 z-[100] flex items-center justify-center backdrop-blur-xl animate-fadeIn p-4"
+            onClick={(e) => e.target === e.currentTarget && setShowAuth(false)}
+          >
+            <div className="bg-slate-900 rounded-[2.5rem] p-2 max-h-[90vh] overflow-y-auto shadow-2xl shadow-black ring-1 ring-white/10 w-full max-w-md">
+              {isSigningUp ? (
+                <SignUp onSuccess={handleAuthSuccess} onToggleForm={toggleAuthForm} onClose={() => setShowAuth(false)} />
+              ) : (
+                <SignIn onSuccess={handleAuthSuccess} onToggleForm={toggleAuthForm} onClose={() => setShowAuth(false)} />
+              )}
+            </div>
           </div>
-        </div>
+        </Portal>
       )}
 
       {/* Compose Modal */}
-      <ComposeModal
-        isOpen={showCompose}
-        onClose={() => setShowCompose(false)}
-        onPoemCreated={handlePoemCreated}
-        dailyPrompt={currentPrompt}
-      />
+      {showCompose && (
+        <Portal>
+          <ComposeModal
+            isOpen={showCompose}
+            onClose={() => setShowCompose(false)}
+            onPoemCreated={handlePoemCreated}
+            dailyPrompt={currentPrompt}
+          />
+        </Portal>
+      )}
 
       <BottomNav
         activeTab={activeTab}

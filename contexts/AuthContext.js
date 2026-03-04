@@ -56,7 +56,8 @@ export const AuthProvider = ({ children }) => {
         email: session.user.email,
         image: session.user.image,
         isGoogle: true,
-        id: session.user.id || session.user._id
+        id: session.user.id || session.user._id,
+        role: session.user.role || 'user'
       };
 
       setUser(googleUser);
