@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import { verifyToken } from '@/lib/utils/auth';
+import Notification from '@/lib/models/Notification';
+
 
 export async function GET(request) {
   try {
@@ -24,9 +26,13 @@ export async function GET(request) {
 
     await connectDB();
 
-    // For now, return 0 unread notifications
-    // In a real app, you would count unread notifications from database
-    return NextResponse.json({ unreadCount: 0 });
+    const unreadCount = await Notification.countDocuments({
+      recipient: decoded.userId,
+      read: false
+    });
+
+    return NextResponse.json({ unreadCount });
+
   } catch (error) {
     console.error('Unread count error:', error);
     return NextResponse.json(

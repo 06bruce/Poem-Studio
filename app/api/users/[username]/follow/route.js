@@ -50,10 +50,24 @@ export async function POST(request, { params }) {
                 $addToSet: { followers: currentUser._id }
             });
 
+            // Create notification
+            try {
+                const Notification = (await import('@/lib/models/Notification')).default;
+                await Notification.create({
+                    recipient: targetUser._id,
+                    sender: currentUser._id,
+                    type: 'follow',
+                    message: `${currentUser.username} started following you`
+                });
+            } catch (err) {
+                console.error('Failed to create follow notification:', err);
+            }
+
             return NextResponse.json({
                 action: 'followed',
                 followersCount: (targetUser.followers?.length || 0) + 1
             });
+
         }
     } catch (error) {
         console.error('Follow/unfollow error:', error);

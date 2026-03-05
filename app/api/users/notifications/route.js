@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import { verifyToken } from '@/lib/utils/auth';
+import Notification from '@/lib/models/Notification';
+import User from '@/lib/models/User';
+import Poem from '@/lib/models/Poem';
 
 export async function GET(request) {
   try {
@@ -24,9 +27,13 @@ export async function GET(request) {
 
     await connectDB();
 
-    // For now, return empty notifications array
-    // In a real app, you would fetch from a notifications collection
-    return NextResponse.json([]);
+    const notifications = await Notification.find({ recipient: decoded.userId })
+      .populate('sender', 'username avatar')
+      .populate('poem', 'title')
+      .sort({ createdAt: -1 })
+      .limit(50);
+
+    return NextResponse.json(notifications);
   } catch (error) {
     console.error('Notifications error:', error);
     return NextResponse.json(
@@ -35,3 +42,4 @@ export async function GET(request) {
     );
   }
 }
+

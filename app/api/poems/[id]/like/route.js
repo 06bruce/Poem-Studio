@@ -45,9 +45,26 @@ export async function POST(request, { params }) {
     });
 
     await poem.save();
-    await poem.populate('author', 'username');
 
+    // Create notification if the liker is not the author
+    if (poem.author.toString() !== user._id.toString()) {
+      try {
+        const Notification = (await import('@/lib/models/Notification')).default;
+        await Notification.create({
+          recipient: poem.author,
+          sender: user._id,
+          type: 'like',
+          poem: poem._id,
+          message: `${user.username} liked your poem "${poem.title}"`
+        });
+      } catch (err) {
+        console.error('Failed to create notification:', err);
+      }
+    }
+
+    await poem.populate('author', 'username');
     return NextResponse.json(poem);
+
   } catch (error) {
     console.error('Like poem error:', error);
     return NextResponse.json(

@@ -27,6 +27,32 @@ function MainContent() {
   const [refreshTrigger, setRefreshTrigger] = useState(0)
   const [showCompose, setShowCompose] = useState(false)
   const [currentPrompt, setCurrentPrompt] = useState(null)
+  const [unreadCount, setUnreadCount] = useState(0)
+
+  useEffect(() => {
+    if (user) {
+      fetchUnreadCount()
+      const interval = setInterval(fetchUnreadCount, 30000) // Every 30s
+      return () => clearInterval(interval)
+    }
+  }, [user])
+
+  const fetchUnreadCount = async () => {
+    try {
+      const token = localStorage.getItem('authToken')
+      if (!token) return
+      const response = await fetch('/api/users/notifications/unread', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      if (response.ok) {
+        const data = await response.json()
+        setUnreadCount(data.unreadCount)
+      }
+    } catch (err) {
+      console.error('Failed to fetch unread count:', err)
+    }
+  }
+
 
   const poemListRef = useRef(null)
 
@@ -153,8 +179,9 @@ function MainContent() {
         activeTab={activeTab}
         onTabChange={handleTabChange}
         onCompose={() => handleCompose()}
-        unreadCount={0}
+        unreadCount={unreadCount}
       />
+
 
       {showWeather && <WeatherEffect mood={mood} />}
     </div>

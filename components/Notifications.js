@@ -111,13 +111,15 @@ export default function Notifications({ isOpen, onClose, inline = false }) {
   const getNotificationIcon = (type) => {
     switch (type) {
       case 'like':
-        return <FiHeart className="text-red-500" />
+        return <FiHeart className="text-red-500 fill-red-500" size={14} />
       case 'follow':
-        return <FiUser className="text-blue-500" />
+        return <FiUser className="text-blue-500" size={14} />
       case 'comment':
-        return <FiMessageCircle className="text-green-500" />
+        return <FiMessageCircle className="text-emerald-500 fill-emerald-500" size={14} />
+      case 'mention':
+        return <span className="text-purple-500 font-bold text-[10px]">@</span>
       default:
-        return <FiBell className="text-gray-500" />
+        return <FiBell className="text-gray-500" size={14} />
     }
   }
 
@@ -129,7 +131,42 @@ export default function Notifications({ isOpen, onClose, inline = false }) {
     if (diffInMinutes < 1) return 'Just now'
     if (diffInMinutes < 60) return `${diffInMinutes}m`
     if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h`
-    return `${Math.floor(diffInMinutes / 1440)}d`
+    if (diffInMinutes < 10080) return `${Math.floor(diffInMinutes / 1440)}d`
+    return `${Math.floor(diffInMinutes / 10080)}w`
+  }
+
+  const renderNotificationMessage = (notification) => {
+    const sender = notification.sender?.username || 'Someone'
+    const poemTitle = notification.poem?.title ? `"${notification.poem.title}"` : 'your poem'
+
+    switch (notification.type) {
+      case 'like':
+        return (
+          <>
+            <span className="font-bold text-white">{sender}</span> liked {poemTitle}
+          </>
+        )
+      case 'follow':
+        return (
+          <>
+            <span className="font-bold text-white">{sender}</span> started following you
+          </>
+        )
+      case 'comment':
+        return (
+          <>
+            <span className="font-bold text-white">{sender}</span> commented on {poemTitle}
+          </>
+        )
+      case 'mention':
+        return (
+          <>
+            <span className="font-bold text-white">{sender}</span> mentioned you in a {notification.poem ? 'poem' : 'comment'}
+          </>
+        )
+      default:
+        return notification.message
+    }
   }
 
   const Content = (
@@ -189,31 +226,57 @@ export default function Notifications({ isOpen, onClose, inline = false }) {
             <p className="text-xs text-slate-500 mt-1 max-w-[200px] mx-auto leading-relaxed">When someone appreciates your art, you&apos;ll be notified here</p>
           </div>
         ) : (
-          <div className={`space-y-3 ${inline ? "pb-4" : "max-h-[60vh] overflow-y-auto pr-1 custom-scrollbar"}`}>
+          <div className={`space-y-1 ${inline ? "pb-4" : "max-h-[60vh] overflow-y-auto pr-1 custom-scrollbar"}`}>
             {notifications.map((notification) => (
-              <button
+              <div
                 key={notification._id}
                 onClick={() => !notification.read && markAsRead(notification._id)}
-                className={`w-full p-4 rounded-2xl cursor-pointer transition text-left group/item relative overflow-hidden ${notification.read ? 'bg-white/5 opacity-70' : 'bg-blue-500/10 border border-blue-500/10'
-                  } hover:bg-white/10 hover:opacity-100 transition-all`}
+                className={`w-full p-3 rounded-xl cursor-pointer transition text-left group/item relative flex items-center gap-3 ${notification.read ? 'opacity-70' : 'bg-blue-500/5'
+                  } hover:bg-white/5 transition-all`}
               >
-                <div className="flex items-start gap-4">
-                  <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center shrink-0 border border-white/5">
+                <div className="relative shrink-0">
+                  <div className="w-11 h-11 rounded-full bg-slate-800 flex items-center justify-center border border-white/5 overflow-hidden">
+                    {notification.sender?.avatar ? (
+                      <img src={notification.sender.avatar} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <FiUser className="text-slate-500" size={20} />
+                    )}
+                  </div>
+                  <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-slate-900 border-2 border-slate-900 flex items-center justify-center">
                     {getNotificationIcon(notification.type)}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-200 leading-tight mb-1">{notification.message}</p>
-                    <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">{formatTime(notification.createdAt)}</span>
-                  </div>
-                  {!notification.read && (
-                    <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 shrink-0 shadow-lg shadow-blue-500/50"></div>
-                  )}
                 </div>
-              </button>
+
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-slate-300 leading-snug">
+                    {renderNotificationMessage(notification)}
+                    <span className="text-slate-500 ml-2 text-xs">{formatTime(notification.createdAt)}</span>
+                  </p>
+                </div>
+
+                {notification.type === 'follow' && (
+                  <button className="shrink-0 px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg transition-colors">
+                    Follow
+                  </button>
+                )}
+
+                {notification.poem && notification.type !== 'follow' && (
+                  <div className="shrink-0 w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center border border-white/5 overflow-hidden">
+                    <div className="text-[10px] text-slate-500 text-center px-1 font-serif line-clamp-2 italic leading-tight">
+                      Verse
+                    </div>
+                  </div>
+                )}
+
+                {!notification.read && (
+                  <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-blue-500 rounded-full mr-2"></div>
+                )}
+              </div>
             ))}
           </div>
         )
       ) : (
+
         sharedPoems.length === 0 ? (
           <div className="text-center py-12 text-gray-400">
             <div className="w-16 h-16 rounded-full bg-white/5 mx-auto mb-4 flex items-center justify-center">

@@ -105,11 +105,32 @@ export async function POST(request) {
 
     await User.findByIdAndUpdate(user._id, streakUpdate);
 
-    // Populate author info for response
-    await poem.populate('author', 'username avatar');
-    await poem.populate('coAuthors', 'username');
+    // Mention detection in poem content
+    const mentions = content.match(/@(\w+)/g);
+    if (mentions) {
+      const usernames = mentions.map(m => m.substring(1).toLowerCase());
+      const uniqueUsernames = [...new Set(usernames)].filter(u => u !== user.username.toLowerCase());
+
+      try {
+        const Notification = (await import('@/lib/models/Notification')).default;
+        const mentionedUsers = await User.find({ username: { $in: uniqueUsernames.map(u => new RegExp(`^${u}$`, 'i')) } });
+
+        for (const targetUser of mentionedUsers) {
+          await Notification.create({
+            recipient: targetUser._id,
+            sender: user._id,
+            type: 'mention',
+            poem: poem._id,
+            message: `${user.username} mentioned you in a poem: "${title}"`
+          });
+        }
+      } catch (err) {
+        console.error('Failed to create mention notifications:', err);
+      }
+    }
 
     return NextResponse.json(poem);
+
   } catch (error) {
     console.error('Create poem error:', error);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
