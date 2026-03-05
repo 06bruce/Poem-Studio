@@ -2,7 +2,7 @@
 import React, { useMemo } from 'react'
 import clsx from 'clsx'
 import { useRouter } from 'next/navigation'
-import { FiHeart, FiCopy, FiEdit2, FiTrash2, FiBookmark, FiPlus, FiMessageSquare, FiSend, FiX, FiSearch, FiRefreshCw } from 'react-icons/fi'
+import { FiHeart, FiCopy, FiEdit2, FiTrash2, FiBookmark, FiPlus, FiMessageSquare, FiSend, FiX, FiSearch, FiRefreshCw, FiZap } from 'react-icons/fi'
 import { toast } from '../contexts/ToastContext'
 import Portal from './Portal'
 
@@ -65,6 +65,7 @@ export default function PoemCard({
   const [showComments, setShowComments] = React.useState(false)
   const [commentText, setCommentText] = React.useState('')
   const [isFinishingComment, setIsFinishingComment] = React.useState(false)
+  const [isExplaining, setIsExplaining] = React.useState(false)
   const [followersCount, setFollowersCount] = React.useState(poem.author?.followers?.length || 0)
   const [isFollowing, setIsFollowing] = React.useState(poem.author?.followers?.includes(currentUserId))
   const [lastTap, setLastTap] = React.useState(0)
@@ -420,9 +421,58 @@ export default function PoemCard({
                   <FiMessageSquare />
                   Thoughts on Line {selectedLine + 1}
                 </h5>
-                <button onClick={() => setSelectedLine(null)} className="text-slate-500 hover:text-slate-300 min-h-[44px] min-w-[44px] flex items-center justify-center" aria-label="Close annotations">
-                  <FiX size={16} />
-                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={async () => {
+                      if (isExplaining) return;
+                      setIsExplaining(true);
+                      try {
+                        const lineText = poemContent.split('\n')[selectedLine];
+                        const response = await fetch('/api/gemini', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            action: 'explain_line',
+                            payload: { line: lineText, fullPoem: poemContent }
+                          })
+                        });
+                        const data = await response.json();
+                        if (data.explanation) {
+                          // Save as annotation
+                          const token = localStorage.getItem('authToken');
+                          const saveRes = await fetch(`/api/poems/${poem._id}/annotate`, {
+                            method: 'POST',
+                            headers: {
+                              'Authorization': `Bearer ${token}`,
+                              'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                              lineIndex: selectedLine,
+                              content: data.explanation,
+                              isAi: true // We can use this to identify AI annotations
+                            })
+                          });
+                          if (saveRes.ok) {
+                            toast.success('The Muse has spoken ✨');
+                            // Local refresh logic would go here
+                          }
+                        }
+                      } catch (err) {
+                        toast.error('The Muse is silent right now');
+                      } finally {
+                        setIsExplaining(false);
+                      }
+                    }}
+                    disabled={isExplaining}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-600/10 text-blue-400 text-[10px] font-bold uppercase tracking-wider hover:bg-blue-600/20 transition-all disabled:opacity-50"
+                  >
+                    <FiZap size={12} className={isExplaining ? 'animate-pulse' : ''} />
+                    {isExplaining ? 'Interpreting...' : 'Ask Muse to Explain'}
+                  </button>
+                  <button onClick={() => setSelectedLine(null)} className="text-slate-500 hover:text-slate-300 min-h-[44px] min-w-[44px] flex items-center justify-center" aria-label="Close annotations">
+                    <FiX size={16} />
+                  </button>
+                </div>
               </div>
 
               <div className="space-y-4 mb-6 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">

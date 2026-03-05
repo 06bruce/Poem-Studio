@@ -1,6 +1,5 @@
-'use client';
-import React, { useMemo } from 'react';
-import { FiZap } from 'react-icons/fi';
+import React, { useMemo, useState, useEffect } from 'react';
+import { FiZap, FiRefreshCw } from 'react-icons/fi';
 
 const prompts = [
     { text: "Write about a color you can't name but can feel.", tag: "unseen-color" },
@@ -37,37 +36,91 @@ const prompts = [
 ];
 
 export default function DailyPrompt({ onWritePrompt }) {
-    const todayPrompt = useMemo(() => {
+    const [dynamicPrompt, setDynamicPrompt] = useState(null);
+    const [isLoading, setIsLoading] = useState(false);
+
+    const staticPrompt = useMemo(() => {
         const now = new Date();
         const startOfYear = new Date(now.getFullYear(), 0, 0);
         const dayOfYear = Math.floor((now - startOfYear) / (1000 * 60 * 60 * 24));
         return prompts[dayOfYear % prompts.length];
     }, []);
 
+    const fetchDynamicPrompt = async () => {
+        setIsLoading(true);
+        try {
+            const response = await fetch('/api/gemini', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'generate_daily_prompt' })
+            });
+            const data = await response.json();
+            if (data.prompts && data.prompts.length > 0) {
+                // Pick a random one from the generated list
+                const randomPrompt = data.prompts[Math.floor(Math.random() * data.prompts.length)];
+                setDynamicPrompt(randomPrompt);
+            }
+        } catch (error) {
+            console.error("Failed to fetch dynamic prompt:", error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        // Option: fetch on mount or just stick with static unless user asks
+        // For now, let's keep static as default and maybe add a "Surprise Me" button
+    }, []);
+
+    const todayPrompt = dynamicPrompt || staticPrompt;
+
     return (
         <div className="mx-4 mb-4">
-            <button
+            <div
                 onClick={() => onWritePrompt?.(todayPrompt)}
-                className="w-full relative overflow-hidden rounded-2xl p-4 sm:p-5 text-left group transition-all duration-300 hover:scale-[1.01] active:scale-[0.99]"
+                onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        onWritePrompt?.(todayPrompt);
+                    }
+                }}
+                tabIndex={0}
+                role="button"
+                className="w-full relative overflow-hidden rounded-2xl p-4 sm:p-5 text-left group transition-all duration-300 hover:scale-[1.01] active:scale-[0.99] cursor-pointer outline-none focus:ring-2 focus:ring-amber-500/20"
+                aria-label="Daily writing prompt"
             >
                 {/* Gradient background */}
                 <div className="absolute inset-0 bg-gradient-to-br from-amber-600/10 via-orange-600/5 to-transparent border border-amber-500/10 rounded-2xl group-hover:border-amber-500/20 transition-colors" />
 
                 <div className="relative">
-                    <div className="flex items-center gap-2 mb-2">
-                        <div className="w-6 h-6 rounded-lg bg-amber-500/20 flex items-center justify-center">
-                            <FiZap size={12} className="text-amber-400" />
+                    <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 rounded-lg bg-amber-500/20 flex items-center justify-center">
+                                <FiZap size={12} className="text-amber-400" />
+                            </div>
+                            <span className="text-[10px] font-bold text-amber-400/80 uppercase tracking-widest">
+                                {dynamicPrompt ? 'AI Ink' : 'Daily Ink'}
+                            </span>
                         </div>
-                        <span className="text-[10px] font-bold text-amber-400/80 uppercase tracking-widest">Daily Ink</span>
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                fetchDynamicPrompt();
+                            }}
+                            className={`p-1.5 rounded-lg hover:bg-white/5 text-slate-500 hover:text-amber-400 transition-colors ${isLoading ? 'animate-spin' : ''}`}
+                            title="Generate new AI prompt"
+                        >
+                            <FiRefreshCw size={12} />
+                        </button>
                     </div>
                     <p className="text-sm sm:text-base text-slate-200 leading-relaxed font-medium">
                         &ldquo;{todayPrompt.text}&rdquo;
                     </p>
                     <p className="text-[11px] text-slate-500 mt-2 group-hover:text-amber-400/60 transition-colors">
-                        Tap to write →
+                        {isLoading ? 'Whispering to the Muse...' : 'Tap to write →'}
                     </p>
                 </div>
-            </button>
+            </div>
         </div>
     );
 }

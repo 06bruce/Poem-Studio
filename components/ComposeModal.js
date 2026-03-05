@@ -1,6 +1,5 @@
-'use client';
 import React, { useState, useEffect, useRef } from 'react';
-import { FiX, FiChevronDown, FiSend, FiZap } from 'react-icons/fi';
+import { FiX, FiChevronDown, FiSend, FiZap, FiEdit3, FiMusic, FiCheckCircle, FiStar, FiSmile } from 'react-icons/fi';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from '../contexts/ToastContext';
 
@@ -16,6 +15,8 @@ export default function ComposeModal({ isOpen, onClose, onPoemCreated, dailyProm
     const [showOptions, setShowOptions] = useState(false);
     const [saving, setSaving] = useState(false);
     const [usePrompt, setUsePrompt] = useState(false);
+    const [isMuseLoading, setIsMuseLoading] = useState(false);
+    const [museSuggestion, setMuseSuggestion] = useState('');
     const textareaRef = useRef(null);
     const titleRef = useRef(null);
 
@@ -44,6 +45,7 @@ export default function ComposeModal({ isOpen, onClose, onPoemCreated, dailyProm
         setTheme('general');
         setShowOptions(false);
         setUsePrompt(false);
+        setMuseSuggestion('');
     };
 
     const handleSubmit = async () => {
@@ -92,6 +94,67 @@ export default function ComposeModal({ isOpen, onClose, onPoemCreated, dailyProm
         }
     };
 
+    const handleMuseAction = async (type) => {
+        if (!content.trim() && type !== 'complete') {
+            toast.error('Write something first for the Muse to work with');
+            return;
+        }
+
+        setIsMuseLoading(true);
+        setMuseSuggestion('');
+        try {
+            const response = await fetch('/api/gemini', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'assist_writing',
+                    payload: { currentText: content, type }
+                })
+            });
+            const data = await response.json();
+            if (data.suggestion) {
+                setMuseSuggestion(data.suggestion);
+            } else {
+                throw new Error(data.error || 'Muse is silent');
+            }
+        } catch (error) {
+            toast.error(error.message);
+        } finally {
+            setIsMuseLoading(false);
+        }
+    };
+
+    const handleAutoTag = async () => {
+        if (!content.trim()) {
+            toast.error('Write something first for the Muse to analyze');
+            return;
+        }
+
+        setIsMuseLoading(true);
+        try {
+            const response = await fetch('/api/gemini', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'analyze',
+                    payload: { content }
+                })
+            });
+            const data = await response.json();
+            if (data.mood && data.theme) {
+                setMood(data.mood);
+                setTheme(data.theme);
+                toast.success(`Detected: ${data.mood} & ${data.theme} ✨`);
+            } else {
+                throw new Error(data.error || 'Muse couldn\'t decide');
+            }
+        } catch (error) {
+            toast.error(error.message);
+        } finally {
+            setIsMuseLoading(false);
+        }
+    };
+
     const wordCount = content.trim().split(/\s+/).filter(Boolean).length;
     const lineCount = content.split('\n').filter(l => l.trim()).length;
 
@@ -124,13 +187,10 @@ export default function ComposeModal({ isOpen, onClose, onPoemCreated, dailyProm
                 <button
                     onClick={() => {
                         setUsePrompt(!usePrompt);
-                        if (!usePrompt && !content.trim()) {
-                            // Pre-fill nothing, just tag it
-                        }
                     }}
                     className={`mx-4 mt-3 p-3 rounded-xl border text-left transition-all text-sm ${usePrompt
-                            ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
-                            : 'bg-white/5 border-white/5 text-slate-400 hover:bg-white/10'
+                        ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+                        : 'bg-white/5 border-white/5 text-slate-400 hover:bg-white/10'
                         }`}
                 >
                     <div className="flex items-center gap-2">
@@ -165,6 +225,86 @@ export default function ComposeModal({ isOpen, onClose, onPoemCreated, dailyProm
                         className="w-full min-h-[40vh] text-base sm:text-lg bg-transparent border-none outline-none text-slate-300 placeholder:text-slate-700 leading-relaxed resize-none font-serif italic"
                         aria-label="Poem content"
                     />
+
+                    {/* Muse Suggestion Box */}
+                    {(isMuseLoading || museSuggestion) && (
+                        <div className="mt-8 p-6 rounded-3xl bg-blue-600/5 border border-blue-500/10 animate-fadeIn relative group">
+                            <div className="flex items-center gap-2 mb-3">
+                                <FiZap size={14} className="text-blue-400" />
+                                <span className="text-[10px] font-bold text-blue-400 uppercase tracking-widest">The AI Muse</span>
+                                {isMuseLoading && <div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse ml-1" />}
+                            </div>
+
+                            {isMuseLoading ? (
+                                <div className="space-y-2">
+                                    <div className="h-4 bg-white/5 rounded-full w-3/4 animate-pulse" />
+                                    <div className="h-4 bg-white/5 rounded-full w-1/2 animate-pulse" />
+                                </div>
+                            ) : (
+                                <div className="space-y-4">
+                                    <p className="text-sm text-slate-300 leading-relaxed italic whitespace-pre-wrap">
+                                        {museSuggestion}
+                                    </p>
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => {
+                                                setContent(prev => prev + (prev.endsWith('\n') ? '' : '\n') + museSuggestion);
+                                                setMuseSuggestion('');
+                                            }}
+                                            className="px-3 py-1.5 rounded-lg bg-blue-600/20 text-blue-400 text-[10px] font-bold uppercase tracking-wider hover:bg-blue-600/30 transition-all"
+                                        >
+                                            Incorporate →
+                                        </button>
+                                        <button
+                                            onClick={() => setMuseSuggestion('')}
+                                            className="px-3 py-1.5 rounded-lg bg-white/5 text-slate-500 text-[10px] font-bold uppercase tracking-wider hover:bg-white/10 transition-all"
+                                        >
+                                            Dismiss
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* AI Control Bar */}
+            <div className="px-4 sm:px-6 py-2 border-t border-white/5 bg-slate-900/50 backdrop-blur-md">
+                <div className="max-w-2xl mx-auto flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
+                    <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest whitespace-nowrap mr-2">The Muse</span>
+                    <button
+                        onClick={() => handleMuseAction('complete')}
+                        disabled={isMuseLoading}
+                        className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/5 text-slate-400 text-xs hover:bg-white/10 transition-all border border-white/5 whitespace-nowrap"
+                    >
+                        <FiEdit3 size={12} />
+                        Next lines
+                    </button>
+                    <button
+                        onClick={() => handleMuseAction('rhyme')}
+                        disabled={isMuseLoading}
+                        className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/5 text-slate-400 text-xs hover:bg-white/10 transition-all border border-white/5 whitespace-nowrap"
+                    >
+                        <FiMusic size={12} />
+                        Rhymes
+                    </button>
+                    <button
+                        onClick={() => handleMuseAction('critique')}
+                        disabled={isMuseLoading}
+                        className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/5 text-slate-400 text-xs hover:bg-white/10 transition-all border border-white/5 whitespace-nowrap"
+                    >
+                        <FiCheckCircle size={12} />
+                        Critique
+                    </button>
+                    <button
+                        onClick={() => handleMuseAction('playful')}
+                        disabled={isMuseLoading}
+                        className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-pink-500/10 text-pink-400 text-xs hover:bg-pink-500/20 transition-all border border-pink-500/20 whitespace-nowrap"
+                    >
+                        <FiSmile size={12} />
+                        Playful
+                    </button>
                 </div>
             </div>
 
@@ -177,15 +317,25 @@ export default function ComposeModal({ isOpen, onClose, onPoemCreated, dailyProm
                         <span>{lineCount} lines</span>
                     </div>
 
-                    <button
-                        onClick={() => setShowOptions(!showOptions)}
-                        className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium text-slate-400 hover:bg-white/5 transition min-h-[40px]"
-                    >
-                        <span className="capitalize">{mood}</span>
-                        <span>·</span>
-                        <span className="capitalize">{theme}</span>
-                        <FiChevronDown size={14} className={`transition-transform ${showOptions ? 'rotate-180' : ''}`} />
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={handleAutoTag}
+                            disabled={isMuseLoading}
+                            className={`p-2 rounded-xl bg-blue-600/10 text-blue-400 hover:bg-blue-600/20 transition-all ${isMuseLoading ? 'animate-pulse' : ''}`}
+                            title="Auto-detect Mood & Theme"
+                        >
+                            <FiStar size={16} />
+                        </button>
+                        <button
+                            onClick={() => setShowOptions(!showOptions)}
+                            className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium text-slate-400 hover:bg-white/5 transition min-h-[40px]"
+                        >
+                            <span className="capitalize">{mood}</span>
+                            <span>·</span>
+                            <span className="capitalize">{theme}</span>
+                            <FiChevronDown size={14} className={`transition-transform ${showOptions ? 'rotate-180' : ''}`} />
+                        </button>
+                    </div>
                 </div>
 
                 {/* Options Panel */}
@@ -199,8 +349,8 @@ export default function ComposeModal({ isOpen, onClose, onPoemCreated, dailyProm
                                         key={m}
                                         onClick={() => setMood(m)}
                                         className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${mood === m
-                                                ? 'bg-blue-600 text-white'
-                                                : 'bg-white/5 text-slate-400 hover:bg-white/10'
+                                            ? 'bg-blue-600 text-white'
+                                            : 'bg-white/5 text-slate-400 hover:bg-white/10'
                                             }`}
                                     >
                                         {m}
@@ -216,8 +366,8 @@ export default function ComposeModal({ isOpen, onClose, onPoemCreated, dailyProm
                                         key={t}
                                         onClick={() => setTheme(t)}
                                         className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${theme === t
-                                                ? 'bg-purple-600 text-white'
-                                                : 'bg-white/5 text-slate-400 hover:bg-white/10'
+                                            ? 'bg-purple-600 text-white'
+                                            : 'bg-white/5 text-slate-400 hover:bg-white/10'
                                             }`}
                                     >
                                         {t}
