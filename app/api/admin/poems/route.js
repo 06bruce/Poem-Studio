@@ -2,6 +2,16 @@ import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Poem from '@/lib/models/Poem';
 import { requireAdmin } from '@/lib/utils/adminAuth';
+import { buildPoemListPipeline } from '@/lib/poemQueries';
+
+// The admin poems tab does client-side search/sort over the whole list (no
+// pagination UI), so this keeps returning everything in one shot rather than
+// changing that contract — but it previously had no bound at all and shipped
+// every embedded comment/like/annotation for every poem in the database. This
+// caps it at a generous number and trims each poem down to counts plus a small
+// comments preview (what the admin UI actually renders).
+const MAX_ADMIN_POEMS = 1000;
+const COMMENTS_PREVIEW_COUNT = 5;
 
 export async function GET(request) {
     try {
@@ -11,9 +21,11 @@ export async function GET(request) {
         }
 
         await connectDB();
-        const poems = await Poem.find()
-            .sort({ createdAt: -1 })
-            .populate('author', 'username email avatar');
+        const poems = await Poem.aggregate(buildPoemListPipeline({
+            limit: MAX_ADMIN_POEMS,
+            commentsPreviewCount: COMMENTS_PREVIEW_COUNT,
+            authorProjection: { username: 1, email: 1, avatar: 1 },
+        }));
 
         return NextResponse.json(poems);
     } catch (error) {

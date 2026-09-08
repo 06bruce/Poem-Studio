@@ -36,18 +36,18 @@ export async function POST(request, { params }) {
                 }
             },
             { returnDocument: 'after' }
-        ).populate('author', 'username').populate('coAuthors', 'username');
+        ).select('author title comments');
 
         if (!poem) {
             return NextResponse.json({ error: 'Poem not found' }, { status: 404 });
         }
 
         // Create notification for the author
-        if (poem.author._id.toString() !== user._id.toString()) {
+        if (poem.author.toString() !== user._id.toString()) {
             try {
                 const Notification = (await import('@/lib/models/Notification')).default;
                 await Notification.create({
-                    recipient: poem.author._id,
+                    recipient: poem.author,
                     sender: user._id,
                     type: 'comment',
                     poem: poem._id,
@@ -70,7 +70,7 @@ export async function POST(request, { params }) {
                 const mentionedUsers = await User.find({ username: { $in: uniqueUsernames.map(u => new RegExp(`^${u}$`, 'i')) } });
 
                 for (const targetUser of mentionedUsers) {
-                    if (targetUser._id.toString() === poem.author._id.toString()) continue; // Already notified as author
+                    if (targetUser._id.toString() === poem.author.toString()) continue; // Already notified as author
 
                     await Notification.create({
                         recipient: targetUser._id,
@@ -85,7 +85,13 @@ export async function POST(request, { params }) {
             }
         }
 
-        return NextResponse.json(poem);
+        // A small delta instead of the whole poem (which may carry hundreds of
+        // other comments) — the caller merges the new comment into local state.
+        return NextResponse.json({
+            _id: poem._id,
+            commentCount: poem.comments.length,
+            comment: poem.comments[poem.comments.length - 1],
+        });
 
     } catch (error) {
         console.error('Comment error:', error);

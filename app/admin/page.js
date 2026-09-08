@@ -174,8 +174,8 @@ function ViewPoemModal({ poem, onClose }) {
 
                 {/* Footer Stats */}
                 <div className="px-6 py-4 border-t border-white/5 flex items-center gap-4 flex-wrap text-sm flex-shrink-0">
-                    <span className="flex items-center gap-1.5 text-pink-400 font-bold"><FiHeart size={14} />{poem.likes?.length || 0}</span>
-                    <span className="flex items-center gap-1.5 text-blue-400 font-bold"><FiMessageSquare size={14} />{poem.comments?.length || 0}</span>
+                    <span className="flex items-center gap-1.5 text-pink-400 font-bold"><FiHeart size={14} />{poem.likeCount || 0}</span>
+                    <span className="flex items-center gap-1.5 text-blue-400 font-bold"><FiMessageSquare size={14} />{poem.commentCount || 0}</span>
                     <span className="flex items-center gap-1.5 text-slate-500"><FiCalendar size={14} />{new Date(poem.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
                     {poem.source && poem.source !== 'user-created' && (
                         <span className="ml-auto text-[10px] px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-400 font-bold uppercase tracking-widest">{poem.source}</span>
@@ -183,18 +183,18 @@ function ViewPoemModal({ poem, onClose }) {
                 </div>
 
                 {/* Comments Preview */}
-                {poem.comments?.length > 0 && (
+                {poem.commentCount > 0 && (
                     <div className="px-6 py-4 border-t border-white/5 flex-shrink-0">
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-3">Comments ({poem.comments.length})</p>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-3">Comments ({poem.commentCount})</p>
                         <div className="space-y-2 max-h-40 overflow-y-auto">
-                            {poem.comments.slice(0, 5).map((c, i) => (
+                            {(poem.commentsPreview || []).map((c, i) => (
                                 <div key={i} className="flex gap-2 text-sm">
                                     <span className="text-blue-400 font-bold flex-shrink-0">@{c.username}</span>
                                     <span className="text-slate-400">{c.content}</span>
                                 </div>
                             ))}
-                            {poem.comments.length > 5 && (
-                                <p className="text-[10px] text-slate-600">+{poem.comments.length - 5} more comments</p>
+                            {poem.commentCount > (poem.commentsPreview?.length || 0) && (
+                                <p className="text-[10px] text-slate-600">+{poem.commentCount - (poem.commentsPreview?.length || 0)} more comments</p>
                             )}
                         </div>
                     </div>
@@ -547,8 +547,8 @@ export default function AdminDashboard() {
                                             <div className="flex items-center gap-2 mt-1">
                                                 <span className="text-[10px] text-slate-500">by @{p.author?.username || 'Unknown'}</span>
                                                 <span className="text-slate-700">·</span>
-                                                <span className="text-[10px] text-slate-600">{p.likes?.length || 0} ♥</span>
-                                                <span className="text-[10px] text-slate-600">{p.comments?.length || 0} 💬</span>
+                                                <span className="text-[10px] text-slate-600">{p.likeCount || 0} ♥</span>
+                                                <span className="text-[10px] text-slate-600">{p.commentCount || 0} 💬</span>
                                             </div>
                                         </div>
                                     ))}
@@ -663,8 +663,8 @@ export default function AdminDashboard() {
                                                 { key: 'title', label: 'Title' },
                                                 { key: 'authorName', label: 'Author' },
                                                 { key: 'theme', label: 'Theme' },
-                                                { key: 'likes', label: 'Likes' },
-                                                { key: 'comments', label: 'Comments' },
+                                                { key: 'likeCount', label: 'Likes' },
+                                                { key: 'commentCount', label: 'Comments' },
                                                 { key: 'createdAt', label: 'Created' },
                                             ].map(col => (
                                                 <th key={col.key} className="px-4 py-3 cursor-pointer select-none hover:bg-white/[0.02] transition-colors" onClick={() => toggleSort(col.key)}>
@@ -697,10 +697,10 @@ export default function AdminDashboard() {
                                                     <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-md bg-white/5 text-slate-400">{p.theme || 'general'}</span>
                                                 </td>
                                                 <td className="px-4 py-3">
-                                                    <span className="flex items-center gap-1 text-sm text-pink-400 font-bold"><FiHeart size={12} />{p.likes?.length || 0}</span>
+                                                    <span className="flex items-center gap-1 text-sm text-pink-400 font-bold"><FiHeart size={12} />{p.likeCount || 0}</span>
                                                 </td>
                                                 <td className="px-4 py-3">
-                                                    <span className="flex items-center gap-1 text-sm text-blue-400 font-bold"><FiMessageSquare size={12} />{p.comments?.length || 0}</span>
+                                                    <span className="flex items-center gap-1 text-sm text-blue-400 font-bold"><FiMessageSquare size={12} />{p.commentCount || 0}</span>
                                                 </td>
                                                 <td className="px-4 py-3 text-[12px] text-slate-500">{new Date(p.createdAt).toLocaleDateString()}</td>
                                                 <td className="px-4 py-3">

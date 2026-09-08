@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Poem from '@/lib/models/Poem';
 import { verifyToken } from '@/lib/utils/auth';
+import { invalidateCached } from '@/lib/serverCache';
 
 // Get single poem
 export async function GET(request, { params }) {
@@ -99,6 +100,7 @@ export async function PUT(request, { params }) {
 
     poem.updatedAt = new Date();
     await poem.save();
+    invalidateCached('poems:explore:first:');
 
     // Populate author info for response
     await poem.populate('author', 'username');
@@ -154,6 +156,7 @@ export async function DELETE(request, { params }) {
     }
 
     await Poem.findByIdAndDelete(id);
+    invalidateCached('poems:explore:first:');
 
     return NextResponse.json(
       { message: 'Poem deleted successfully' }

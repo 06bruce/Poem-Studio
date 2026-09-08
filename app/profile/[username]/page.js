@@ -5,6 +5,7 @@ import clsx from 'clsx';
 import { FiArrowLeft, FiEdit2, FiUsers, FiBook, FiBookmark, FiPlus, FiLoader, FiCheck, FiX, FiZap, FiGrid, FiList, FiActivity } from 'react-icons/fi';
 import { useAuth } from '../../../contexts/AuthContext';
 import { toast } from '../../../contexts/ToastContext';
+import { cachedFetch, invalidateCache } from '../../../lib/clientCache';
 import PoemCard from '../../../components/PoemCard';
 import Header from '../../../components/Header';
 import BottomNav from '../../../components/BottomNav';
@@ -39,17 +40,24 @@ export default function UserProfile() {
     setLoading(true);
     setError(null);
     try {
-      const userResponse = await fetch(`/api/users/${username}`);
-      if (!userResponse.ok) throw new Error('User not found');
-      const userData = await userResponse.json();
+      const { data: userData } = await cachedFetch(`/api/users/${username}`, async () => {
+        const response = await fetch(`/api/users/${username}`);
+        if (!response.ok) throw new Error('User not found');
+        return response.json();
+      }, 20000);
       setProfileUser(userData);
       setFollowersCount(userData.followers?.length || 0);
       setIsFollowing(userData.followers?.includes(user?.id || user?._id));
 
-      const poemsResponse = await fetch(`/api/users/${username}/poems`);
-      if (poemsResponse.ok) {
-        const poemsData = await poemsResponse.json();
+      try {
+        const { data: poemsData } = await cachedFetch(`/api/users/${username}/poems`, async () => {
+          const response = await fetch(`/api/users/${username}/poems`);
+          if (!response.ok) throw new Error('Failed to load poems');
+          return response.json();
+        }, 20000);
         setUserPoems(poemsData);
+      } catch (poemsError) {
+        console.error('Failed to load user poems:', poemsError);
       }
     } catch (error) {
       setError(error.message);
@@ -116,6 +124,7 @@ export default function UserProfile() {
         if (editUsername !== username) {
           router.push(`/profile/${editUsername}`);
         } else {
+          invalidateCache(`/api/users/${username}`);
           fetchUserProfile();
         }
       } else {
@@ -152,8 +161,9 @@ export default function UserProfile() {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
-        const updatedPoem = await response.json();
-        setUserPoems(poems => poems.map(p => p._id === poemId ? updatedPoem : p));
+        const updated = await response.json();
+        setUserPoems(poems => poems.map(p => p._id === poemId ? { ...p, ...updated } : p));
+        invalidateCache(`/api/users/${username}/poems`);
       }
     } catch (err) { }
   };
@@ -166,14 +176,17 @@ export default function UserProfile() {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (response.ok) {
-        const updatedPoem = await response.json();
-        setUserPoems(poems => poems.map(p => p._id === poemId ? updatedPoem : p));
+        const updated = await response.json();
+        setUserPoems(poems => poems.map(p => p._id === poemId ? { ...p, ...updated } : p));
+        invalidateCache(`/api/users/${username}/poems`);
       }
     } catch (err) { }
   };
 
   const isLikedByUser = (poem) => {
-    if (!user || !poem.likes) return false;
+    if (!user) return false;
+    if (poem.likedByMe !== undefined) return poem.likedByMe;
+    if (!poem.likes) return false;
     return poem.likes.some(like => like.userId === user.id || like.userId === user._id);
   };
 
