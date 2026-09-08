@@ -1,5 +1,5 @@
 'use client';
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import Header from '../components/Header'
 import PoemList from '../components/PoemList'
 import Notifications from '../components/Notifications'
@@ -14,10 +14,11 @@ import ComposeModal from '../components/ComposeModal'
 import DailyPrompt from '../components/DailyPrompt'
 import Portal from '../components/Portal'
 import { useAuth } from '../contexts/AuthContext'
+import { cachedFetch } from '../lib/clientCache'
 import { useRouter } from 'next/navigation'
 
 function MainContent() {
-  const { user } = useAuth()
+  const { user, logout } = useAuth()
   const router = useRouter()
   const [activeTab, setActiveTab] = useState('home')
   const [mood, setMood] = useState('neutral')
@@ -29,29 +30,43 @@ function MainContent() {
   const [currentPrompt, setCurrentPrompt] = useState(null)
   const [unreadCount, setUnreadCount] = useState(0)
 
-  useEffect(() => {
-    if (user) {
-      fetchUnreadCount()
-      const interval = setInterval(fetchUnreadCount, 30000) // Every 30s
-      return () => clearInterval(interval)
-    }
-  }, [user])
-
-  const fetchUnreadCount = async () => {
+  const fetchUnreadCount = useCallback(async () => {
     try {
       const token = localStorage.getItem('authToken')
       if (!token) return
-      const response = await fetch('/api/users/notifications/unread', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      })
-      if (response.ok) {
-        const data = await response.json()
-        setUnreadCount(data.unreadCount)
-      }
+      const uid = user?._id || user?.id || 'anon'
+      const { data } = await cachedFetch(`/api/users/notifications/unread:${uid}`, async () => {
+        const response = await fetch('/api/users/notifications/unread', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
+        if (response.status === 401 || response.status === 403) {
+          const err = new Error('Authentication token invalid or expired.')
+          err.authExpired = true
+          throw err
+        }
+        if (!response.ok) throw new Error('Failed to fetch unread count')
+        return response.json()
+      }, 15000)
+      setUnreadCount(data?.unreadCount || 0)
     } catch (err) {
+      if (err?.authExpired) {
+        console.warn('Authentication token invalid or expired. Logging out.')
+        logout()
+        return
+      }
       console.error('Failed to fetch unread count:', err)
     }
-  }
+  }, [logout, user])
+
+  useEffect(() => {
+    if (!user) return
+    const initial = setTimeout(fetchUnreadCount, 0)
+    const interval = setInterval(fetchUnreadCount, 30000) // Every 30s
+    return () => {
+      clearTimeout(initial)
+      clearInterval(interval)
+    }
+  }, [user, fetchUnreadCount])
 
 
   const poemListRef = useRef(null)
@@ -101,14 +116,15 @@ function MainContent() {
   return (
     <div className="min-h-screen bg-slate-950 pb-24 relative overflow-hidden transition-colors duration-500">
       {/* Background Blobs */}
-      <div className="fixed top-[-10%] left-[-10%] w-[50%] h-[50%] bg-blue-600/10 rounded-full blur-[120px] -z-10 animate-pulse"></div>
-      <div className="fixed bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-purple-600/10 rounded-full blur-[120px] -z-10 animate-pulse" style={{ animationDelay: '2s' }}></div>
+      <div className="fixed top-[-10%] left-[-10%] w-[50%] h-[50%] bg-blue-600/10 rounded-full blur-[120px] -z-10"></div>
+      <div className="fixed bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-purple-600/10 rounded-full blur-[120px] -z-10"></div>
 
       <Header
         onToggleSnow={handleToggleWeather}
         showSnow={showWeather}
         onAuthClick={() => setShowAuth(true)}
         onNotificationsClick={() => setActiveTab('activity')}
+        unreadCount={unreadCount}
       />
 
       <main id="main-content" className="max-w-4xl mx-auto pt-8">

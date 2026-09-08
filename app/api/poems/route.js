@@ -24,7 +24,19 @@ export async function GET(request) {
       .limit(limit)
       .lean();
 
-    return NextResponse.json(poems);
+    const nextCursor = poems.length === limit
+      ? poems[poems.length - 1].createdAt.toISOString()
+      : null
+
+    return NextResponse.json({
+      items: poems,
+      nextCursor,
+      hasMore: Boolean(nextCursor)
+    }, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60'
+      }
+    });
   } catch (error) {
     console.error('Get poems error:', error);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });

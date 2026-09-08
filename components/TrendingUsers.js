@@ -1,19 +1,23 @@
 'use client';
 import React, { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { FiTrendingUp, FiUsers } from 'react-icons/fi'
+import { cachedFetch } from '../lib/clientCache'
 
 export default function TrendingUsers() {
+  const router = useRouter()
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const fetchTrendingUsers = async () => {
       try {
-        const response = await fetch('/api/users/trending')
-        if (response.ok) {
-          const data = await response.json()
-          setUsers(data)
-        }
+        const { data } = await cachedFetch('/api/users/trending', async () => {
+          const response = await fetch('/api/users/trending')
+          if (response.ok) return response.json()
+          throw new Error('Failed to fetch trending users')
+        }, 60000)
+        setUsers(data)
       } catch (error) {
         console.error('Failed to fetch trending users:', error)
       } finally {
@@ -25,7 +29,7 @@ export default function TrendingUsers() {
   }, [])
 
   const handleUserClick = (username) => {
-    window.location.href = `/profile/${username}`
+    router.push(`/profile/${username}`)
   }
 
   if (loading) {

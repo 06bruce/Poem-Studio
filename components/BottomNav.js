@@ -13,7 +13,7 @@ export default function BottomNav({ activeTab, onTabChange, onCompose, unreadCou
 
     return (
         <nav
-            className="fixed bottom-0 left-0 right-0 z-50 bg-slate-950/90 backdrop-blur-xl border-t border-white/5 safe-area-pb"
+            className="fixed bottom-0 left-0 right-0 z-50 bg-slate-950/95 border-t border-white/5 safe-area-pb"
             role="tablist"
             aria-label="Main navigation"
         >

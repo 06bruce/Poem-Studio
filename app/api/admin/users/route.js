@@ -77,7 +77,7 @@ export async function PATCH(request) {
         if (email !== undefined) updateFields.email = email;
         if (bio !== undefined) updateFields.bio = bio;
 
-        const user = await User.findByIdAndUpdate(userId, updateFields, { new: true })
+        const user = await User.findByIdAndUpdate(userId, updateFields, { returnDocument: 'after' })
             .select('username email avatar role bio createdAt totalPoems currentStreak longestStreak lastWrittenAt followers following badges');
 
         if (!user) {

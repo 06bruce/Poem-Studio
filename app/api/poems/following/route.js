@@ -35,13 +35,35 @@ export async function GET(request) {
     }
 
     const followingIds = user.following || [];
-    
-    const poems = await Poem.find({ author: { $in: followingIds } })
+
+    const { searchParams } = new URL(request.url);
+    const limit = Math.min(parseInt(searchParams.get('limit') || '20'), 50);
+    const before = searchParams.get('before'); // cursor-based pagination
+
+    const query = { author: { $in: followingIds } };
+    if (before) {
+      query.createdAt = { $lt: new Date(before) };
+    }
+
+    const poems = await Poem.find(query)
       .populate('author', 'username avatar')
       .sort({ createdAt: -1 })
+      .limit(limit)
       .lean();
     
-    return NextResponse.json(poems);
+    const nextCursor = poems.length === limit
+      ? poems[poems.length - 1].createdAt.toISOString()
+      : null
+
+    return NextResponse.json({
+      items: poems,
+      nextCursor,
+      hasMore: Boolean(nextCursor)
+    }, {
+      headers: {
+        'Cache-Control': 'private, max-age=15, stale-while-revalidate=30'
+      }
+    });
   } catch (error) {
     console.error('Get following poems error:', error);
     return NextResponse.json(

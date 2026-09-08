@@ -1,10 +1,13 @@
 'use client';
 import React, { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { FiBell, FiX, FiHeart, FiUser, FiMessageCircle } from 'react-icons/fi'
 import { useAuth } from '../contexts/AuthContext'
+import { cachedFetch, invalidateCache } from '../lib/clientCache'
 
 export default function Notifications({ isOpen, onClose, inline = false }) {
   const { user } = useAuth()
+  const router = useRouter()
   const [notifications, setNotifications] = useState([])
   const [loading, setLoading] = useState(false)
   const [sharedPoems, setSharedPoems] = useState([])
@@ -32,16 +35,18 @@ export default function Notifications({ isOpen, onClose, inline = false }) {
     setLoading(true)
     try {
       const token = localStorage.getItem('authToken')
-      const response = await fetch('/api/users/notifications', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
+      const uid = user?._id || user?.id || 'anon'
+      const { data } = await cachedFetch(`/api/users/notifications:${uid}`, async () => {
+        const response = await fetch('/api/users/notifications', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        })
+        if (!response.ok) throw new Error('Failed to fetch notifications')
+        return response.json()
+      }, 20000)
 
-      if (response.ok) {
-        const data = await response.json()
-        setNotifications(data)
-      }
+      setNotifications(data)
     } catch (error) {
       console.error('Failed to fetch notifications:', error)
     } finally {
@@ -53,16 +58,18 @@ export default function Notifications({ isOpen, onClose, inline = false }) {
     setLoading(true)
     try {
       const token = localStorage.getItem('authToken')
-      const response = await fetch('/api/users/shared-poems', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
+      const uid = user?._id || user?.id || 'anon'
+      const { data } = await cachedFetch(`/api/users/shared-poems:${uid}`, async () => {
+        const response = await fetch('/api/users/shared-poems', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        })
+        if (!response.ok) throw new Error('Failed to fetch shared poems')
+        return response.json()
+      }, 20000)
 
-      if (response.ok) {
-        const data = await response.json()
-        setSharedPoems(data)
-      }
+      setSharedPoems(data)
     } catch (error) {
       console.error('Failed to fetch shared poems:', error)
     } finally {
@@ -82,6 +89,7 @@ export default function Notifications({ isOpen, onClose, inline = false }) {
         body: JSON.stringify({ sharedPoemIds: [sharedPoemId] })
       })
 
+      invalidateCache('/api/users/shared-poems')
       setSharedPoems(prev =>
         prev.map(p => p._id === sharedPoemId ? { ...p, read: true } : p)
       )
@@ -100,11 +108,23 @@ export default function Notifications({ isOpen, onClose, inline = false }) {
         }
       })
 
+      invalidateCache('/api/users/notifications')
+      invalidateCache('/api/users/notifications/unread')
       setNotifications(prev =>
         prev.map(n => n._id === notificationId ? { ...n, read: true } : n)
       )
     } catch (error) {
       console.error('Failed to mark notification as read:', error)
+    }
+  }
+
+  const openNotification = async (notification) => {
+    if (!notification.read) await markAsRead(notification._id)
+    if (notification.type === 'follow') {
+      const username = notification.sender?.username
+      if (username) router.push(`/profile/${username}`)
+    } else if (notification.poem?._id || notification.poem) {
+      router.push(`/poem/${notification.poem._id || notification.poem}`)
     }
   }
 
@@ -230,7 +250,7 @@ export default function Notifications({ isOpen, onClose, inline = false }) {
             {notifications.map((notification) => (
               <div
                 key={notification._id}
-                onClick={() => !notification.read && markAsRead(notification._id)}
+                onClick={() => openNotification(notification)}
                 className={`w-full p-3 rounded-xl cursor-pointer transition text-left group/item relative flex items-center gap-3 ${notification.read ? 'opacity-70' : 'bg-blue-500/5'
                   } hover:bg-white/5 transition-all`}
               >
@@ -290,7 +310,11 @@ export default function Notifications({ isOpen, onClose, inline = false }) {
             {sharedPoems.map((shared) => (
               <div
                 key={shared._id}
-                onClick={() => !shared.read && markSharedAsRead(shared._id)}
+                onClick={() => {
+                  if (!shared.read) markSharedAsRead(shared._id)
+                  const id = shared.poem?.id || shared.poem?._id
+                  if (id) router.push(`/poem/${id}`)
+                }}
                 className={`w-full p-4 rounded-2xl transition text-left relative overflow-hidden group/share ${shared.read ? 'bg-white/5 opacity-80' : 'bg-emerald-500/10 border border-emerald-500/10'
                   } hover:bg-white/10 hover:opacity-100 transition-all`}
               >
@@ -317,7 +341,10 @@ export default function Notifications({ isOpen, onClose, inline = false }) {
 
                   <div className="flex items-center justify-end gap-2 mt-1">
                     <button
-                      onClick={() => window.location.href = `/poem/${shared.poem?.id || shared.poem?._id}`}
+                      onClick={() => {
+                        const id = shared.poem?.id || shared.poem?._id
+                        if (id) router.push(`/poem/${id}`)
+                      }}
                       className="text-[10px] font-black text-slate-400 hover:text-white uppercase tracking-widest transition-colors flex items-center gap-1"
                     >
                       Read verse

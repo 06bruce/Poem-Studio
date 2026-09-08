@@ -23,13 +23,13 @@ export async function PUT(request, { params }) {
             );
         }
 
-        const { id } = params;
+        const { id } = await params;
         await connectDB();
 
         const notification = await Notification.findOneAndUpdate(
             { _id: id, recipient: decoded.userId },
             { read: true },
-            { new: true }
+            { returnDocument: 'after' }
         );
 
         if (!notification) {

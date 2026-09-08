@@ -9,7 +9,11 @@ export async function GET(request, { params }) {
     const { id } = await params;
     await connectDB();
     const poem = await Poem.findById(id)
-      .populate('author', 'username');
+      .populate('author', 'username avatar')
+      .populate('coAuthors', 'username')
+      .populate('comments.user', 'username avatar')
+      .populate('annotations.userId', 'username avatar')
+      .lean();
 
     if (!poem) {
       return NextResponse.json(
@@ -18,7 +22,11 @@ export async function GET(request, { params }) {
       );
     }
 
-    return NextResponse.json(poem);
+    return NextResponse.json(poem, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60'
+      }
+    });
   } catch (error) {
     console.error('Get poem error:', error);
     return NextResponse.json(

@@ -1,121 +1,143 @@
-'use client';
-import React, { useEffect, useRef, useState } from 'react'
+'use client'
+
+import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { useWindowVirtualizer } from '@tanstack/react-virtual'
 import PoemCard from './PoemCard'
-import { FiTrash2, FiShare2, FiLoader, FiAlertCircle } from 'react-icons/fi'
+import PoemReadMode from './PoemReadMode'
+import { FiAlertCircle, FiLoader, FiShare2 } from 'react-icons/fi'
 import { useAuth } from '../contexts/AuthContext'
 import { toast } from '../contexts/ToastContext'
-import html2canvas from 'html2canvas'
+import { cachedFetch, invalidateCache } from '../lib/clientCache'
+import { getPoemPresentation } from '../lib/poemPresentation'
+
+const PAGE_SIZE = 12
 
 const PoemList = React.forwardRef(({ refreshTrigger }, ref) => {
   const { user } = useAuth()
   const [poems, setPoems] = useState([])
+  const [nextCursor, setNextCursor] = useState(null)
+  const [hasMore, setHasMore] = useState(true)
   const [loading, setLoading] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState(null)
   const [sharingId, setSharingId] = useState(null)
   const [editingId, setEditingId] = useState(null)
   const [editForm, setEditForm] = useState({ title: '', content: '' })
-  const [feedType, setFeedType] = useState('explore') // 'explore' or 'following'
-  const listRef = useRef(null)
+  const [feedType, setFeedType] = useState('explore')
+  const [readIndex, setReadIndex] = useState(null)
+  const requestRef = useRef(0)
 
-  // Fetch poems on mount and when user changes or refreshTrigger/feedType changes
-  useEffect(() => {
-    fetchPoems()
-  }, [user, refreshTrigger, feedType])
+  const feedUrl = feedType === 'following' && user ? '/api/poems/following' : '/api/poems'
+  const cachePrefix = feedType === 'following' ? `/api/poems/following:${user?._id || user?.id}` : '/api/poems'
 
-  const fetchPoems = async () => {
-    setLoading(true)
+  const fetchPage = useCallback(async ({ cursor = null, replace = false } = {}) => {
+    if (feedType === 'following' && !user) return
+    const requestId = ++requestRef.current
+    if (replace) setLoading(true)
+    else setLoadingMore(true)
     setError(null)
     try {
       const token = localStorage.getItem('authToken')
-      let url = '/api/poems'
-
-      if (feedType === 'following' && user) {
-        url = '/api/poems/following'
-      }
-
-      const response = await fetch(url, {
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      const query = new URLSearchParams({ limit: String(PAGE_SIZE) })
+      if (cursor) query.set('before', cursor)
+      const url = `${feedUrl}?${query.toString()}`
+      const cacheKey = `${cachePrefix}?limit=${PAGE_SIZE}${cursor ? `&before=${cursor}` : ''}`
+      const { data } = await cachedFetch(cacheKey, async () => {
+        const response = await fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+        if (!response.ok) throw new Error('Failed to fetch poems')
+        return response.json()
+      }, feedType === 'following' ? 15000 : 30000)
+      if (requestId !== requestRef.current) return
+      const page = Array.isArray(data) ? { items: data, nextCursor: null, hasMore: false } : data
+      setPoems((current) => {
+        if (replace) return page.items || []
+        const merged = [...current, ...(page.items || [])]
+        return Array.from(new Map(merged.map((poem) => [poem._id, poem])).values())
       })
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch poems')
-      }
-
-      const data = await response.json()
-      setPoems(data)
+      setNextCursor(page.nextCursor || null)
+      setHasMore(Boolean(page.hasMore))
     } catch (err) {
-      setError('Failed to load poems')
+      if (replace) setError('Failed to load poems')
       console.error('Fetch poems error:', err)
     } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleLike = async (poemId) => {
-    try {
-      const token = localStorage.getItem('authToken')
-      const response = await fetch(`/api/poems/${poemId}/like`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to like poem')
+      if (requestId === requestRef.current) {
+        setLoading(false)
+        setLoadingMore(false)
       }
+    }
+  }, [cachePrefix, feedType, feedUrl, user])
 
-      const updatedPoem = await response.json()
-      setPoems(poems.map(p => p._id === poemId ? updatedPoem : p))
-      toast.success('Liked!')
+  useEffect(() => {
+    if (refreshTrigger > 0) invalidateCache(cachePrefix)
+    setPoems([])
+    setNextCursor(null)
+    setHasMore(true)
+    fetchPage({ replace: true })
+  }, [cachePrefix, fetchPage, refreshTrigger])
+
+  const virtualizer = useWindowVirtualizer({
+    count: poems.length,
+    estimateSize: () => 430,
+    overscan: 3,
+    getItemKey: (index) => poems[index]?._id || index
+  })
+  const virtualItems = virtualizer.getVirtualItems()
+
+  useEffect(() => {
+    const lastItem = virtualItems[virtualItems.length - 1]
+    if (lastItem && lastItem.index >= poems.length - 4 && hasMore && !loadingMore && nextCursor) fetchPage({ cursor: nextCursor })
+  }, [fetchPage, hasMore, loadingMore, nextCursor, poems.length, virtualItems])
+
+  const updatePoem = useCallback((poemId, updater) => {
+    setPoems((current) => current.map((poem) => poem._id === poemId ? updater(poem) : poem))
+  }, [])
+
+  const handleLike = useCallback(async (poemId) => {
+    const previous = poems.find((poem) => poem._id === poemId)
+    if (!previous) return
+    const userId = user?.id || user?._id
+    updatePoem(poemId, (poem) => ({ ...poem, likes: [...(poem.likes || []), { userId }] }))
+    try {
+      const response = await fetch(`/api/poems/${poemId}/like`, { method: 'POST', headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` } })
+      if (!response.ok) throw new Error((await response.json()).error || 'Failed to like poem')
+      const updated = await response.json()
+      updatePoem(poemId, () => updated)
+      invalidateCache('/api/poems')
     } catch (err) {
-      console.error('Like error:', err)
+      updatePoem(poemId, () => previous)
       toast.error(err.message || 'Failed to like poem')
     }
-  }
+  }, [poems, updatePoem, user])
 
-  const handleUnlike = async (poemId) => {
+  const handleUnlike = useCallback(async (poemId) => {
+    const previous = poems.find((poem) => poem._id === poemId)
+    if (!previous) return
+    const userId = user?.id || user?._id
+    updatePoem(poemId, (poem) => ({ ...poem, likes: (poem.likes || []).filter((like) => like.userId !== userId) }))
     try {
-      const token = localStorage.getItem('authToken')
-      const response = await fetch(`/api/poems/${poemId}/unlike`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to unlike poem')
-      }
-
-      const updatedPoem = await response.json()
-      setPoems(poems.map(p => p._id === poemId ? updatedPoem : p))
-      toast.success('Unliked')
+      const response = await fetch(`/api/poems/${poemId}/unlike`, { method: 'POST', headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` } })
+      if (!response.ok) throw new Error((await response.json()).error || 'Failed to unlike poem')
+      const updated = await response.json()
+      updatePoem(poemId, () => updated)
+      invalidateCache('/api/poems')
     } catch (err) {
-      console.error('Unlike error:', err)
+      updatePoem(poemId, () => previous)
       toast.error(err.message || 'Failed to unlike poem')
     }
-  }
+  }, [poems, updatePoem, user])
 
   const handleShare = async (poemId) => {
     setSharingId(poemId)
     try {
       const element = document.getElementById(`poem-card-${poemId}`)
-      if (element) {
-        const canvas = await html2canvas(element, {
-          backgroundColor: '#1f2937',
-          scale: 2
-        })
-
-        const link = document.createElement('a')
-        link.download = `poem-${poemId}.png`
-        link.href = canvas.toDataURL()
-        link.click()
-
-        toast.success('Poem image saved!')
-      }
+      if (!element) return
+      const html2canvas = (await import('html2canvas')).default
+      const canvas = await html2canvas(element, { backgroundColor: '#1f2937', scale: 2 })
+      const link = document.createElement('a')
+      link.download = `poem-${poemId}.png`
+      link.href = canvas.toDataURL()
+      link.click()
+      toast.success('Poem image saved!')
     } catch (err) {
       console.error('Share error:', err)
       toast.error('Failed to generate image')
@@ -126,187 +148,56 @@ const PoemList = React.forwardRef(({ refreshTrigger }, ref) => {
 
   const handleEdit = (poem) => {
     setEditingId(poem._id)
-    setEditForm({
-      title: poem.title,
-      content: poem.content
-    })
+    setEditForm({ title: poem.title, content: poem.content })
   }
 
   const handleEditSubmit = async (poemId) => {
     try {
-      const token = localStorage.getItem('authToken')
-      const response = await fetch(`/api/poems/${poemId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(editForm)
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to update poem')
-      }
-
-      const updatedPoem = await response.json()
-      setPoems(poems.map(p => p._id === poemId ? updatedPoem : p))
+      const response = await fetch(`/api/poems/${poemId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('authToken')}` }, body: JSON.stringify(editForm) })
+      if (!response.ok) throw new Error((await response.json()).error || 'Failed to update poem')
+      const updated = await response.json()
+      updatePoem(poemId, () => updated)
       setEditingId(null)
       setEditForm({ title: '', content: '' })
+      invalidateCache(cachePrefix)
       toast.success('Poem updated successfully!')
     } catch (err) {
-      console.error('Edit error:', err)
       toast.error(err.message || 'Failed to update poem')
     }
   }
 
-  const handleEditCancel = () => {
-    setEditingId(null)
-    setEditForm({ title: '', content: '' })
-  }
-
   const handleDelete = (poemId) => {
-    setPoems(poems.filter(p => p._id !== poemId))
+    setPoems((current) => current.filter((poem) => poem._id !== poemId))
+    invalidateCache(cachePrefix)
     toast.success('Poem deleted successfully!')
   }
 
-  const isLikedByUser = (poem) => {
-    if (!user || !poem.likes) return false
-    return poem.likes.some(like => like.userId === user.id || like.userId === user._id)
-  }
+  const currentReadPoem = readIndex === null ? null : poems[readIndex]
+  const currentPresentation = currentReadPoem ? getPoemPresentation(currentReadPoem, readIndex) : null
 
   return (
     <div ref={ref} className="space-y-6">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-semibold">Poem Collection</h2>
-        {user && (
-          <div className="flex gap-2">
-            <button
-              onClick={() => setFeedType('explore')}
-              className={`px-4 py-2 rounded-lg transition ${feedType === 'explore'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                }`}
-            >
-              Explore
-            </button>
-            <button
-              onClick={() => setFeedType('following')}
-              className={`px-4 py-2 rounded-lg transition ${feedType === 'following'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                }`}
-            >
-              Following
-            </button>
-          </div>
-        )}
+      <div className="mb-6 flex items-center justify-between">
+        <h2 className="font-space text-xl font-semibold">Poem Collection</h2>
+        {user && <div className="flex gap-2">{['explore', 'following'].map((type) => <button key={type} onClick={() => setFeedType(type)} className={`rounded-lg px-4 py-2 capitalize transition ${feedType === type ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}>{type}</button>)}</div>}
       </div>
-
-      {loading && (
-        <div className="flex items-center justify-center py-12">
-          <FiLoader className="animate-spin text-2xl" />
-          <span className="ml-2">Loading poems...</span>
-        </div>
-      )}
-
-      {error && (
-        <div className="p-6 rounded-2xl glass border border-red-500/20 flex flex-col items-center gap-4 text-center">
-          <div className="p-3 rounded-full bg-red-500/10 text-red-400">
-            <FiAlertCircle size={32} />
-          </div>
-          <div>
-            <p className="text-red-200 font-medium mb-1">{error}</p>
-            <p className="text-slate-400 text-sm">Our connection to the universe timed out. Try whispering again.</p>
-          </div>
-          <button
-            onClick={fetchPoems}
-            className="px-6 py-2 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-300 font-bold transition-all active:scale-95 border border-red-500/20"
-          >
-            Retry Ripple
-          </button>
-        </div>
-      )}
-
-      {!loading && !error && poems.length === 0 && (
-        <div className="text-center py-12 text-gray-400">
-          <p>No poems found. Be the first to create one!</p>
-        </div>
-      )}
-
-      <div className="space-y-6" ref={listRef}>
-        {poems.map((poem) => (
-          <div key={poem._id} id={`poem-card-${poem._id}`}>
-            {editingId === poem._id ? (
-              <div className="rounded-2xl glass p-6">
-                <h3 className="text-lg font-semibold mb-4">Edit Poem</h3>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Title</label>
-                    <input
-                      type="text"
-                      value={editForm.title}
-                      onChange={(e) => setEditForm(prev => ({ ...prev, title: e.target.value }))}
-                      className="w-full px-4 py-2 rounded-lg bg-gray-800 border border-gray-700 focus:border-blue-500 outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Content</label>
-                    <textarea
-                      value={editForm.content}
-                      onChange={(e) => setEditForm(prev => ({ ...prev, content: e.target.value }))}
-                      rows={6}
-                      className="w-full px-4 py-2 rounded-lg bg-gray-800 border border-gray-700 focus:border-blue-500 outline-none resize-none"
-                    />
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleEditSubmit(poem._id)}
-                      className="px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 transition"
-                    >
-                      Save Changes
-                    </button>
-                    <button
-                      onClick={handleEditCancel}
-                      className="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 transition"
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <PoemCard
-                poem={poem}
-                currentUserId={user?.id || user?._id}
-                onLike={handleLike}
-                onUnlike={handleUnlike}
-                currentUserLiked={isLikedByUser(poem)}
-                onEdit={handleEdit}
-                onDelete={handleDelete}
-                extraActions={
-                  <button
-                    onClick={() => handleShare(poem._id)}
-                    disabled={sharingId === poem._id}
-                    className="p-2 rounded-lg bg-gray-700 text-gray-300 hover:bg-gray-600 transition disabled:opacity-50"
-                    title="Share as image"
-                  >
-                    {sharingId === poem._id ? (
-                      <FiLoader className="animate-spin" size={16} />
-                    ) : (
-                      <FiShare2 size={16} />
-                    )}
-                  </button>
-                }
-              />
-            )}
-          </div>
-        ))}
+      {loading && <div className="flex items-center justify-center py-12"><FiLoader className="animate-spin text-2xl" /><span className="ml-2">Loading poems...</span></div>}
+      {error && <div className="glass flex flex-col items-center gap-4 rounded-2xl border border-red-500/20 p-6 text-center"><FiAlertCircle className="text-red-400" size={32} /><p className="text-red-200">{error}</p><button onClick={() => fetchPage({ replace: true })} className="rounded-xl border border-red-500/20 bg-red-500/20 px-6 py-2 text-red-300">Retry</button></div>}
+      {!loading && !error && poems.length === 0 && <div className="py-12 text-center text-gray-400">No poems found. Be the first to create one!</div>}
+      <div className="relative w-full pr-1" style={{ height: `${virtualizer.getTotalSize()}px` }}>
+          {virtualItems.map((virtualRow) => {
+            const poem = poems[virtualRow.index]
+            const presentation = getPoemPresentation(poem, virtualRow.index)
+            return <div key={poem._id} ref={virtualizer.measureElement} data-index={virtualRow.index} id={`poem-card-${poem._id}`} className="absolute left-0 top-0 w-full pb-6" style={{ transform: `translateY(${virtualRow.start}px)` }}>
+              {editingId === poem._id ? <div className="glass rounded-2xl p-6"><h3 className="mb-4 text-lg font-semibold">Edit Poem</h3><div className="space-y-4"><input value={editForm.title} onChange={(event) => setEditForm((form) => ({ ...form, title: event.target.value }))} className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2 outline-none" /><textarea value={editForm.content} onChange={(event) => setEditForm((form) => ({ ...form, content: event.target.value }))} rows={6} className="w-full resize-none rounded-lg border border-gray-700 bg-gray-800 px-4 py-2 outline-none" /><div className="flex gap-2"><button onClick={() => handleEditSubmit(poem._id)} className="rounded-lg bg-green-600 px-4 py-2">Save Changes</button><button onClick={() => setEditingId(null)} className="rounded-lg bg-gray-700 px-4 py-2">Cancel</button></div></div></div> : <PoemCard poem={poem} presentation={presentation} currentUserId={user?.id || user?._id} currentUserLiked={Boolean(poem.likes?.some((like) => like.userId === (user?.id || user?._id)))} onLike={handleLike} onUnlike={handleUnlike} onEdit={handleEdit} onDelete={handleDelete} onRead={() => setReadIndex(virtualRow.index)} extraActions={<button onClick={() => handleShare(poem._id)} disabled={sharingId === poem._id} className="rounded-lg bg-gray-700 p-2 text-gray-300 transition hover:bg-gray-600 disabled:opacity-50" title="Share as image">{sharingId === poem._id ? <FiLoader className="animate-spin" size={16} /> : <FiShare2 size={16} />}</button>} />}
+            </div>
+          })}
       </div>
+      {loadingMore && <div className="flex justify-center py-4"><FiLoader className="animate-spin" /></div>}
+      <PoemReadMode poem={currentReadPoem} presentation={currentPresentation} hasPrevious={readIndex > 0} hasNext={readIndex !== null && readIndex < poems.length - 1} onPrevious={() => setReadIndex((index) => Math.max(0, index - 1))} onNext={() => setReadIndex((index) => Math.min(poems.length - 1, index + 1))} onClose={() => setReadIndex(null)} />
     </div>
   )
 })
 
 PoemList.displayName = 'PoemList'
-
 export default PoemList

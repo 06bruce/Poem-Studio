@@ -1,8 +1,9 @@
 'use client';
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { FiPlus, FiMessageSquare, FiX, FiSend, FiLoader, FiEdit2, FiTrash2, FiEye, FiHeart, FiSearch, FiCheck, FiStar, FiUsers } from 'react-icons/fi'
 import { toast } from '../contexts/ToastContext'
 import { useAuth } from '../contexts/AuthContext'
+import { cachedFetch, invalidateCache } from '../lib/clientCache'
 import Portal from './Portal'
 import clsx from 'clsx'
 
@@ -26,6 +27,11 @@ export default function StoriesBar() {
     const [isLoadingCloseFriends, setIsLoadingCloseFriends] = useState(false)
     const [activeStoryIndex, setActiveStoryIndex] = useState(0)
     const [seenStories, setSeenStories] = useState(new Set()) // Track seen story IDs locally for session
+    const searchTimer = useRef(null)
+
+    useEffect(() => () => {
+        if (searchTimer.current) clearTimeout(searchTimer.current)
+    }, [])
 
     const themes = [
         { id: 'blue', label: 'Sapphire', class: 'from-blue-600 to-blue-400' },
@@ -78,11 +84,12 @@ export default function StoriesBar() {
 
     const fetchStories = async () => {
         try {
-            const response = await fetch('/api/stories')
-            if (response.ok) {
-                const data = await response.json()
-                setStories(data)
-            }
+            const { data } = await cachedFetch('/api/stories', async () => {
+                const response = await fetch('/api/stories')
+                if (response.ok) return response.json()
+                throw new Error('Failed to fetch stories')
+            }, 30000)
+            setStories(data)
         } catch (err) {
             console.error('Failed to fetch stories:', err)
         }
@@ -114,6 +121,7 @@ export default function StoriesBar() {
                 setColorTheme('blue')
                 setShowCreate(false)
                 setVisibility('public')
+                invalidateCache('/api/stories')
                 fetchStories()
             }
         } catch (err) {
@@ -207,6 +215,7 @@ export default function StoriesBar() {
             if (response.ok) {
                 toast.success('The ripple has faded.')
                 setSelectedStory(null)
+                invalidateCache('/api/stories')
                 fetchStories()
             }
         } catch (err) {
@@ -233,6 +242,7 @@ export default function StoriesBar() {
             if (response.ok) {
                 toast.success('The verse has shifted.')
                 setIsEditing(false)
+                invalidateCache('/api/stories')
                 fetchStories()
                 setSelectedStory(null)
             } else {
@@ -269,24 +279,27 @@ export default function StoriesBar() {
         }
     }
 
-    const searchUsers = async (val) => {
+    const searchUsers = (val) => {
         setUserSearch(val)
+        if (searchTimer.current) clearTimeout(searchTimer.current)
         if (val.length < 2) {
             setSearchResults([])
             return
         }
         setIsSearching(true)
-        try {
-            const response = await fetch(`/api/users/search?q=${encodeURIComponent(val)}`)
-            if (response.ok) {
-                const data = await response.json()
-                setSearchResults(data.filter(u => u._id !== user?.id && !mentions.find(m => m._id === u._id)))
+        searchTimer.current = setTimeout(async () => {
+            try {
+                const response = await fetch(`/api/users/search?q=${encodeURIComponent(val)}`)
+                if (response.ok) {
+                    const data = await response.json()
+                    setSearchResults(data.filter(u => u._id !== user?.id && !mentions.find(m => m._id === u._id)))
+                }
+            } catch (err) {
+                console.error('Search failed', err)
+            } finally {
+                setIsSearching(false)
             }
-        } catch (err) {
-            console.error('Search failed', err)
-        } finally {
-            setIsSearching(false)
-        }
+        }, 300)
     }
 
     return (
@@ -428,7 +441,7 @@ export default function StoriesBar() {
                                             </div>
                                         ) : (
                                             <p className="text-2xl md:text-4xl font-space text-slate-100 italic leading-snug mb-12 drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)]">
-                                                "{currentStory.content}"
+                                                &ldquo;{currentStory.content}&rdquo;
                                             </p>
                                         )}
 

@@ -23,19 +23,21 @@ export default function WeatherEffect({ mood = 'neutral' }) {
     canvas.width = window.innerWidth
     canvas.height = window.innerHeight
 
+    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+
     const particles = []
-    const particleCount = 60 // Reduced for better perf on mobile
+    const particleCount = canvas.width < 768 ? 24 : 60
 
     const color = moodColors[mood] || moodColors.neutral
 
     class Particle {
-      constructor() {
-        this.reset()
+      constructor(anywhere = false) {
+        this.reset(anywhere)
       }
 
-      reset() {
+      reset(anywhere = false) {
         this.x = Math.random() * canvas.width
-        this.y = Math.random() * canvas.height - canvas.height
+        this.y = anywhere ? Math.random() * canvas.height : Math.random() * canvas.height - canvas.height
         this.size = Math.random() * 2.5 + 0.5
         this.speedY = Math.random() * 0.8 + 0.3
         this.speedX = Math.random() * 0.4 - 0.2
@@ -69,15 +71,31 @@ export default function WeatherEffect({ mood = 'neutral' }) {
     }
 
     for (let i = 0; i < particleCount; i++) {
-      particles.push(new Particle())
+      particles.push(new Particle(reducedMotion))
     }
 
-    const animate = () => {
+    // When reduced motion is requested, render one static frame instead of animating.
+    const drawStatic = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height)
-      particles.forEach(particle => {
-        particle.update()
-        particle.draw()
-      })
+      particles.forEach(particle => particle.draw())
+    }
+
+    if (reducedMotion) {
+      drawStatic()
+      return () => {}
+    }
+
+    // Throttle to ~30fps so the compositor isn't repainted every frame.
+    let lastFrame = 0
+    const animate = (timestamp) => {
+      if (timestamp - lastFrame >= 33) {
+        lastFrame = timestamp
+        ctx.clearRect(0, 0, canvas.width, canvas.height)
+        particles.forEach(particle => {
+          particle.update()
+          particle.draw()
+        })
+      }
       animationRef.current = requestAnimationFrame(animate)
     }
 
@@ -90,16 +108,19 @@ export default function WeatherEffect({ mood = 'neutral' }) {
         }
       } else {
         if (!animationRef.current) {
-          animate()
+          animate(performance.now())
         }
       }
     }
 
-    animate()
+    animate(performance.now())
 
     const handleResize = () => {
       canvas.width = window.innerWidth
       canvas.height = window.innerHeight
+      if (reducedMotion) {
+        drawStatic()
+      }
     }
 
     window.addEventListener('resize', handleResize)

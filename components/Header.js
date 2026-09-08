@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { FiSun, FiMoon, FiLogOut, FiBell, FiUser, FiMenu, FiX, FiShield } from 'react-icons/fi'
@@ -7,45 +7,10 @@ import { useAuth } from '../contexts/AuthContext'
 import { useRouter } from 'next/navigation'
 import { toast } from '../contexts/ToastContext'
 
-export default function Header({ onToggleSnow, showSnow, onAuthClick, onNotificationsClick }) {
+export default function Header({ onToggleSnow, showSnow, onAuthClick, onNotificationsClick, unreadCount = 0 }) {
   const { user, logout } = useAuth()
-  const [unreadCount, setUnreadCount] = useState(0)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const router = useRouter()
-
-  useEffect(() => {
-    if (user) {
-      fetchUnreadCount()
-      const interval = setInterval(fetchUnreadCount, 30000)
-      return () => clearInterval(interval)
-    }
-  }, [user])
-
-  const fetchUnreadCount = async () => {
-    try {
-      const token = localStorage.getItem('authToken')
-      if (!token) return
-
-      const response = await fetch('/api/users/notifications/unread', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
-
-      if (response.status === 401 || response.status === 403) {
-        console.warn('Authentication token invalid or expired. Logging out.')
-        handleLogout()
-        return
-      }
-
-      if (response.ok) {
-        const data = await response.json()
-        setUnreadCount(data.unreadCount || 0)
-      }
-    } catch (err) {
-      console.error('Failed to fetch unread count:', err)
-    }
-  }
 
   const handleLogout = async () => {
     await logout()

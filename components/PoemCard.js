@@ -2,7 +2,7 @@
 import React, { useMemo } from 'react'
 import clsx from 'clsx'
 import { useRouter } from 'next/navigation'
-import { FiHeart, FiCopy, FiEdit2, FiTrash2, FiBookmark, FiPlus, FiMessageSquare, FiSend, FiX, FiSearch, FiRefreshCw, FiZap } from 'react-icons/fi'
+import { FiHeart, FiCopy, FiEdit2, FiTrash2, FiBookmark, FiPlus, FiMessageSquare, FiSend, FiX, FiSearch, FiRefreshCw, FiZap, FiBookOpen } from 'react-icons/fi'
 import { toast } from '../contexts/ToastContext'
 import Portal from './Portal'
 
@@ -43,8 +43,9 @@ const moodThemes = {
   neutral: { bg: null, color: '#9ca3af' }
 }
 
-export default function PoemCard({
+function PoemCard({
   poem,
+  presentation,
   extraActions,
   onEdit,
   onDelete,
@@ -53,7 +54,8 @@ export default function PoemCard({
   onLike,
   onUnlike,
   currentUserLiked = false,
-  isNew = false
+  isNew = false,
+  onRead
 }) {
   const router = useRouter()
   const [showSaveModal, setShowSaveModal] = React.useState(false)
@@ -65,10 +67,21 @@ export default function PoemCard({
   const [showComments, setShowComments] = React.useState(false)
   const [commentText, setCommentText] = React.useState('')
   const [isFinishingComment, setIsFinishingComment] = React.useState(false)
+  const [localComments, setLocalComments] = React.useState(poem.comments || [])
+  const [isSaved, setIsSaved] = React.useState(false)
+  const [heartBurst, setHeartBurst] = React.useState(false)
+  const [isVisible, setIsVisible] = React.useState(false)
+  const cardRef = React.useRef(null)
   const [isExplaining, setIsExplaining] = React.useState(false)
   const [followersCount, setFollowersCount] = React.useState(poem.author?.followers?.length || 0)
   const [isFollowing, setIsFollowing] = React.useState(poem.author?.followers?.includes(currentUserId))
   const [lastTap, setLastTap] = React.useState(0)
+  const shareSearchTimer = React.useRef(null)
+
+  React.useEffect(() => () => {
+    if (shareSearchTimer.current) clearTimeout(shareSearchTimer.current)
+  }, [])
+
   // Share modal state
   const [showShareModal, setShowShareModal] = React.useState(false)
   const [shareSearch, setShareSearch] = React.useState('')
@@ -79,7 +92,30 @@ export default function PoemCard({
   const [isSearchingUsers, setIsSearchingUsers] = React.useState(false)
   const moodTheme = moodThemes[poem.mood] || moodThemes.neutral
 
+  React.useEffect(() => {
+    const element = cardRef.current
+    if (!element) return undefined
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches || navigator.connection?.saveData || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 2)
+    if (reducedMotion) {
+      setIsVisible(true)
+      return undefined
+    }
+    const observer = new IntersectionObserver(([entry]) => setIsVisible(entry.isIntersecting), { threshold: 0.12 })
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [])
+
+  const visual = useMemo(() => presentation || {
+    background: { background: `linear-gradient(135deg, ${randomDimColor(poem._id || poem.id)}, rgba(15, 23, 42, 0.9))` },
+    palette: { accent: moodTheme.color },
+    typography: 'medium',
+    cardVariant: 'standard',
+    authorAura: 'linear-gradient(135deg, #60a5fa, #a855f7)',
+    moodLabel: poem.mood || poem.theme || 'General'
+  }, [moodTheme.color, poem._id, poem.id, poem.mood, poem.theme, presentation])
+
   const bg = useMemo(() => {
+    if (presentation?.background) return presentation.background
     if (moodTheme.bg) {
       return {
         backgroundImage: `linear-gradient(rgba(15, 23, 42, 0.7), rgba(15, 23, 42, 0.9)), url(${moodTheme.bg})`,
@@ -88,7 +124,7 @@ export default function PoemCard({
       }
     }
     return { background: `linear-gradient(135deg, ${randomDimColor(poem._id || poem.id)}, rgba(15, 23, 42, 0.9))` }
-  }, [poem._id, poem.id, moodTheme.bg])
+  }, [moodTheme.bg, poem._id, poem.id, presentation])
 
   const isAuthor = currentUserId && poem.author && (
     currentUserId === poem.author._id || currentUserId === poem.author
@@ -99,6 +135,10 @@ export default function PoemCard({
   const authorName = poem.authorName || poem.author?.username || 'Anonymous'
   const likeCount = poem.likes?.length || 0
 
+  React.useEffect(() => {
+    setLocalComments(poem.comments || [])
+  }, [poem.comments])
+
   const handleCopy = async () => {
     const text = `${poem.title}\n\n${poemContent}\n\n- ${authorName}`
     if (typeof window !== 'undefined' && navigator.clipboard) {
@@ -108,6 +148,8 @@ export default function PoemCard({
   }
 
   const handleLike = () => {
+    setHeartBurst(true)
+    window.setTimeout(() => setHeartBurst(false), 500)
     if (currentUserLiked) {
       onUnlike?.(poem._id)
     } else {
@@ -116,20 +158,23 @@ export default function PoemCard({
   }
 
   // Share: user search
-  const handleShareSearch = async (val) => {
+  const handleShareSearch = (val) => {
     setShareSearch(val)
+    if (shareSearchTimer.current) clearTimeout(shareSearchTimer.current)
     if (val.length < 2) { setShareResults([]); return }
     setIsSearchingUsers(true)
-    try {
-      const token = localStorage.getItem('authToken')
-      const res = await fetch(`/api/users/search?q=${encodeURIComponent(val)}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      })
-      if (res.ok) {
-        const users = await res.json()
-        setShareResults(users.filter(u => u._id !== currentUserId))
-      }
-    } catch { } finally { setIsSearchingUsers(false) }
+    shareSearchTimer.current = setTimeout(async () => {
+      try {
+        const token = localStorage.getItem('authToken')
+        const res = await fetch(`/api/users/search?q=${encodeURIComponent(val)}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
+        if (res.ok) {
+          const users = await res.json()
+          setShareResults(users.filter(u => u._id !== currentUserId))
+        }
+      } catch { } finally { setIsSearchingUsers(false) }
+    }, 300)
   }
 
   // Share: send poem
@@ -228,6 +273,11 @@ export default function PoemCard({
       return
     }
 
+    const optimisticId = `pending-${Date.now()}`
+    const optimisticComment = { _id: optimisticId, username: 'You', content: commentText.trim(), createdAt: new Date().toISOString() }
+    setLocalComments((comments) => [...comments, optimisticComment])
+    const submittedText = commentText.trim()
+    setCommentText('')
     setIsFinishingComment(true)
     try {
       const token = localStorage.getItem('authToken')
@@ -237,15 +287,20 @@ export default function PoemCard({
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ content: commentText })
+        body: JSON.stringify({ content: submittedText })
       })
       if (response.ok) {
         toast.success('Thought shared ✨')
-        setCommentText('')
-        // In a real app, we'd update the local poem object or re-fetch
+        const submitted = await response.json()
+        if (submitted.comments) setLocalComments(submitted.comments)
+        else setLocalComments((comments) => comments.filter((comment) => comment._id !== optimisticId))
+      } else {
+        toast.error('Failed to share thought')
+        setLocalComments((comments) => comments.filter((comment) => comment._id !== optimisticId))
       }
     } catch (err) {
       toast.error('Failed to share thought')
+      setLocalComments((comments) => comments.filter((comment) => comment._id !== optimisticId))
     } finally {
       setIsFinishingComment(false)
     }
@@ -273,6 +328,7 @@ export default function PoemCard({
   }
 
   const handleSaveToCollection = async (collectionName) => {
+    setIsSaved(true)
     setSaving(true)
     try {
       const token = localStorage.getItem('authToken')
@@ -288,12 +344,15 @@ export default function PoemCard({
       if (response.ok) {
         const data = await response.json()
         toast.success(data.message)
+        setIsSaved(true)
         setShowSaveModal(false)
       } else {
         const err = await response.json()
+        setIsSaved(false)
         toast.error(err.error || 'Failed to save poem')
       }
     } catch (err) {
+      setIsSaved(false)
       toast.error('Failed to save poem')
     } finally {
       setSaving(false)
@@ -311,11 +370,14 @@ export default function PoemCard({
 
   return (
     <div
+      ref={cardRef}
       onDoubleClick={handleDoubleTap}
       className={clsx(
-        'rounded-3xl glass p-5 sm:p-8 transition-all duration-500 hover:shadow-2xl hover:shadow-black group/card relative overflow-hidden',
+        'group/card relative overflow-hidden rounded-3xl border border-white/10 p-5 shadow-2xl transition-all duration-500 hover:-translate-y-1 hover:shadow-black sm:p-8',
+        visual.cardVariant === 'featured' && 'border-transparent p-6 sm:p-12',
+        visual.cardVariant === 'offset' && 'sm:ml-5 sm:w-[calc(100%-1.25rem)]',
         isNew && 'ring-2 ring-blue-500/50 shadow-lg shadow-blue-500/20'
-      )} style={bg}>
+      )} style={{ ...bg, boxShadow: `0 24px 80px -38px ${visual.palette.accent}80` }}>
       <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-white/10 to-transparent opacity-0 group-hover/card:opacity-100 transition-opacity"></div>
 
       {/* Social Header */}
@@ -323,13 +385,12 @@ export default function PoemCard({
         <div className="flex items-center gap-3">
           <button
             onClick={handleAuthorClick}
-            className="w-10 h-10 rounded-full overflow-hidden bg-gradient-to-br from-blue-500/20 to-purple-600/20 border border-white/10 flex items-center justify-center text-blue-400 font-bold text-sm hover:scale-105 transition-transform"
+            className="h-11 w-11 rounded-full border-2 border-transparent p-0.5 text-sm font-bold text-white transition-transform hover:scale-105"
+            style={{ backgroundImage: visual.authorAura }}
           >
-            {poem.author?.avatar ? (
-              <img src={poem.author.avatar} alt={authorName} className="w-full h-full object-cover" />
-            ) : (
-              authorName.charAt(0).toUpperCase()
-            )}
+            <span className="flex h-full w-full items-center justify-center overflow-hidden rounded-full bg-slate-900">
+              {poem.author?.avatar ? <img src={poem.author.avatar} alt={authorName} className="h-full w-full object-cover" /> : authorName.charAt(0).toUpperCase()}
+            </span>
           </button>
           <div>
             <div className="flex items-center gap-2">
@@ -361,6 +422,9 @@ export default function PoemCard({
             style={{ backgroundColor: moodTheme.color, boxShadow: `0 0 8px ${moodTheme.color}60` }}
             title={`Atmosphere: ${poem.mood}`}
           />
+          <button onClick={onRead} className="rounded-full bg-white/10 p-2 text-slate-300 transition hover:bg-white/20 hover:text-white" aria-label="Open read mode"><FiBookOpen size={16} /></button>
+          {extraActions}
+          {canEdit && <div className="flex items-center gap-1"><button onClick={handleEdit} className="p-2 text-slate-400 hover:text-blue-400" aria-label="Edit"><FiEdit2 size={14} /></button><button onClick={handleDelete} className="p-2 text-slate-400 hover:text-red-400" aria-label="Delete"><FiTrash2 size={14} /></button></div>}
           {isAuthor && !isReadOnly && (
             <div className="flex items-center gap-1 opacity-0 group-hover/card:opacity-100 transition-opacity">
               <button onClick={handleEdit} className="p-2 text-slate-400 hover:text-blue-400" aria-label="Edit"><FiEdit2 size={14} /></button>
@@ -371,17 +435,18 @@ export default function PoemCard({
       </div>
 
       <div className="mb-6">
-        <h3 className="text-xl sm:text-2xl font-bold mb-4 text-slate-100 leading-tight">{poem.title}</h3>
+        <h3 className={clsx('mb-4 font-bold leading-tight text-slate-100', visual.cardVariant === 'featured' ? 'text-3xl sm:text-5xl' : visual.typography === 'short' ? 'text-2xl sm:text-4xl' : 'text-xl sm:text-2xl')}>{poem.title}</h3>
 
-        <div className="mb-8 relative space-y-1">
+        <div className={clsx('relative mb-8', visual.typography === 'short' ? 'space-y-3' : 'space-y-1')}>
           {poemContent.split('\n').map((line, idx) => {
             const lineAnnotations = poem.annotations?.filter(a => a.lineIndex === idx) || []
             return (
-              <div key={idx} className="group/line relative flex items-center gap-4">
+              <div key={idx} className={clsx('group/line relative flex items-center gap-4 transition-all duration-500', isVisible ? 'translate-y-0 opacity-100' : 'translate-y-2 opacity-0')} style={{ transitionDelay: isVisible ? `${Math.min(idx * 45, 600)}ms` : '0ms' }}>
                 <button
                   onClick={() => setSelectedLine(selectedLine === idx ? null : idx)}
                   className={clsx(
-                    'flex-1 text-left px-3 py-1.5 rounded-lg transition-all duration-300 text-slate-300 italic text-base sm:text-lg opacity-90 hover:bg-white/5 hover:opacity-100',
+                    'flex-1 rounded-lg px-3 py-1.5 text-left italic text-slate-200 transition-all duration-300 hover:bg-white/5 hover:opacity-100',
+                    visual.typography === 'short' ? 'text-lg leading-relaxed sm:text-2xl sm:leading-relaxed' : visual.typography === 'medium' ? 'text-base leading-8 sm:text-lg' : 'text-base leading-7 sm:text-lg',
                     selectedLine === idx && 'bg-blue-500/10 text-blue-300 opacity-100 ring-1 ring-blue-500/20'
                   )}
                 >
@@ -553,6 +618,7 @@ export default function PoemCard({
             >
               <FiHeart size={22} className={clsx(currentUserLiked && 'fill-current')} />
               <span className="text-xs font-bold">{likeCount > 0 ? likeCount : ''}</span>
+              {heartBurst && <span className="heart-burst" aria-hidden="true">+</span>}
             </button>
 
             <button
@@ -564,7 +630,7 @@ export default function PoemCard({
               aria-label="Comments"
             >
               <FiMessageSquare size={22} />
-              <span className="text-xs font-bold">{poem.comments?.length || ''}</span>
+                <span className="text-xs font-bold">{localComments.length || ''}</span>
             </button>
 
             <button
@@ -584,7 +650,7 @@ export default function PoemCard({
             className="text-slate-400 hover:text-blue-400 transition-colors active:scale-90"
             aria-label="Save"
           >
-            <FiBookmark size={22} />
+            <FiBookmark size={22} className={clsx(isSaved && 'fill-current')} />
           </button>
         </div>
 
@@ -592,8 +658,8 @@ export default function PoemCard({
         {showComments && (
           <div className="mt-5 pt-5 border-t border-white/5 animate-fadeIn">
             <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar mb-4">
-              {poem.comments?.length > 0 ? (
-                poem.comments.map((comment, ci) => (
+              {localComments.length > 0 ? (
+                localComments.map((comment, ci) => (
                   <div key={comment._id || ci} className="flex gap-3">
                     <div className="w-7 h-7 rounded-full overflow-hidden bg-slate-800 flex-shrink-0 flex items-center justify-center text-[10px] font-bold text-slate-400">
                       {(comment.user?.avatar || comment.avatar) ? (
@@ -799,3 +865,5 @@ export default function PoemCard({
     </div>
   )
 }
+
+export default React.memo(PoemCard)
