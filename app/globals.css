@@ -1,20 +1,117 @@
 @import "tailwindcss";
 
+/*
+ * Design system: "ink & paper" — this app is for writing, so the theme toggle
+ * literally switches between an ink-dark page for night writing and a warm
+ * paper page for daylight reading, instead of a generic light/dark inversion.
+ * The brand accent is warm gold ("signal", replacing the generic blue-600
+ * SaaS accent) plus a muted plum ("accent-cool") for the mystical Muse/AI
+ * touches — both already implied by this app's existing copy voice
+ * ("Consulting the muse...", "The Muse has spoken", "Essence preserved").
+ *
+ * Below, --color-blue-* / --color-purple-* / --color-slate-* are intentionally
+ * REDEFINED (not renamed) so every existing bg-blue-600, text-slate-400, etc.
+ * utility across the whole codebase repaints with the new palette and responds
+ * to the theme automatically — without editing each component.
+ */
+
 @theme {
-  --color-brand-primary: #3b82f6;
-  --color-brand-secondary: #8b5cf6;
-  --color-surface-900: #0f172a;
-  --color-surface-800: #1e293b;
-  --color-surface-700: #334155;
+  --color-brand-primary: var(--signal);
+  --color-brand-secondary: var(--accent-cool);
+  --color-surface-900: var(--paper);
+  --color-surface-800: var(--surface);
+  --color-surface-700: var(--surface-border);
 
   --font-inter: var(--font-inter), sans-serif;
   --font-space: var(--font-space), sans-serif;
   --font-orbitron: var(--font-orbitron), sans-serif;
+  --font-fraunces: var(--font-fraunces), ui-serif, Georgia, serif;
 }
 
 :root {
-  --foreground-rgb: 226, 232, 240;
-  --background-rgb: 15, 23, 42;
+  /* Dark ("ink") — the default mode, matching the app's existing look */
+  --paper: #0c0e17;
+  --paper-rgb: 12, 14, 23;
+  --ink: #e7e3d8;
+  --ink-rgb: 231, 227, 216;
+  --signal: #e3a83f;
+  --on-signal: #1a1508;
+  --accent-cool: #9b7fd4;
+  --line: rgba(231, 227, 216, 0.12);
+  --surface: rgba(238, 220, 190, 0.05);
+  --surface-border: rgba(238, 220, 190, 0.1);
+  --scrollbar-track: rgba(12, 14, 23, 0.6);
+  --scrollbar-thumb: rgba(120, 110, 90, 0.5);
+  --scrollbar-thumb-hover: rgba(150, 138, 112, 0.7);
+
+  /* 300/400 are used as text/tint accents against the dark page — kept light
+     for contrast. 500/600 are used as solid button fills under hardcoded
+     text-white — darkened so that pairing still clears WCAG AA (4.5:1). */
+  --color-blue-300: #f2d9a3;
+  --color-blue-400: #e8bb63;
+  --color-blue-500: #96681e;
+  --color-blue-600: #7d5817;
+  --color-purple-400: #b9a0e6;
+  --color-purple-500: #7a5ec2;
+  --color-purple-600: #6b4fa8;
+
+  /* The sign-in/sign-up gradients also reach for indigo/fuchsia alongside
+     blue/purple — alias them to the same plum ramp so those gradients read as
+     a smooth gold-to-plum transition instead of a blue/indigo/fuchsia rainbow. */
+  --color-indigo-500: #7a5ec2;
+  --color-indigo-600: #6b4fa8;
+  --color-fuchsia-400: #b9a0e6;
+  --color-fuchsia-500: #7a5ec2;
+  --color-fuchsia-600: #6b4fa8;
+}
+
+:root[data-theme='light'] {
+  /* Light ("paper") — a real second palette, not an inverted filter */
+  --paper: #f6f1e6;
+  --paper-rgb: 246, 241, 230;
+  --ink: #1c1a2b;
+  --ink-rgb: 28, 26, 43;
+  --signal: #8f5f14;
+  --on-signal: #fdf8ef;
+  --accent-cool: #5b3f96;
+  --line: rgba(28, 26, 43, 0.14);
+  --surface: rgba(28, 26, 43, 0.035);
+  --surface-border: rgba(28, 26, 43, 0.1);
+  --scrollbar-track: rgba(230, 221, 199, 0.6);
+  --scrollbar-thumb: rgba(150, 136, 104, 0.5);
+  --scrollbar-thumb-hover: rgba(120, 107, 80, 0.7);
+
+  /* Same split as dark mode: 300/400 are darkened for contrast as *text* on
+     the light page; 500/600 stay dark enough for white button text too. */
+  --color-blue-300: #a6760f;
+  --color-blue-400: #8a5e10;
+  --color-blue-500: #96681e;
+  --color-blue-600: #7d5817;
+  --color-purple-400: #6b4fa8;
+  --color-purple-500: #5b3f96;
+  --color-purple-600: #4a3380;
+
+  --color-indigo-500: #5b3f96;
+  --color-indigo-600: #4a3380;
+  --color-fuchsia-400: #6b4fa8;
+  --color-fuchsia-500: #5b3f96;
+  --color-fuchsia-600: #4a3380;
+
+  /* Invert the neutral ramp too, so every existing bg-slate-950/text-slate-400/
+     etc. across the app becomes a coherent light surface instead of staying
+     literally dark-on-dark. Low numbers were "bright text on a dark page" and
+     become dark text on a light page; high numbers were "dark surfaces" and
+     become light surfaces. */
+  --color-slate-100: #221e18;
+  --color-slate-200: #322c22;
+  --color-slate-300: #453d2f;
+  --color-slate-400: #5c5140;
+  --color-slate-500: #736653;
+  --color-slate-600: #7d7256;
+  --color-slate-700: #c9bea3;
+  --color-slate-800: #e2d8bf;
+  --color-slate-900: #ede4cf;
+  --color-slate-950: #f6f1e6;
 }
 
 .font-cosmic {
@@ -25,29 +122,35 @@
   font-family: var(--font-space);
 }
 
+.font-display {
+  font-family: var(--font-fraunces);
+  font-optical-sizing: auto;
+}
 
 body {
-  color: rgb(var(--foreground-rgb));
-  background-color: rgb(var(--background-rgb));
+  color: var(--ink);
+  background-color: var(--paper);
   font-family: var(--font-inter);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-/* Glass morphism effect */
+/* Glass morphism effect — now a theme-aware surface instead of a literal
+   white tint, so it stays legible against both the ink and paper backgrounds. */
 .glass {
-  background: rgba(30, 41, 59, 0.7);
+  background: color-mix(in srgb, var(--paper) 55%, transparent);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  border: 1px solid var(--surface-border);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.28);
 }
 
 .glass-pill {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--surface);
   backdrop-filter: blur(4px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--surface-border);
   border-radius: 9999px;
 }
 
@@ -57,16 +160,16 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(15, 23, 42, 0.5);
+  background: var(--scrollbar-track);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(51, 65, 85, 0.8);
+  background: var(--scrollbar-thumb);
   border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(71, 85, 105, 1);
+  background: var(--scrollbar-thumb-hover);
 }
 
 /* Hide scrollbar utility */
@@ -91,7 +194,7 @@ body {
 }
 
 .animate-shimmer {
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.05), transparent);
+  background: linear-gradient(90deg, transparent, var(--surface), transparent);
   background-size: 200% 100%;
   animation: shimmer 2s infinite;
 }
@@ -151,9 +254,9 @@ body {
   .poem-type-medium { font-size: 1.2rem; }
 }
 
-/* Text Gradient */
+/* Text Gradient — the brand wordmark: gold into plum, not the generic blue-to-purple */
 .text-gradient {
-  background: linear-gradient(to right, #60a5fa, #a855f7);
+  background: linear-gradient(to right, var(--signal), var(--accent-cool));
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -208,14 +311,14 @@ body {
 
 /* Focus visible styles */
 :focus-visible {
-  outline: 2px solid #60a5fa;
+  outline: 2px solid var(--signal);
   outline-offset: 2px;
   border-radius: 8px;
 }
 
 /* Custom focus ring for glass elements */
 .glass:focus-within {
-  box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.3), 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--signal) 40%, transparent), 0 8px 32px 0 rgba(0, 0, 0, 0.28);
 }
 
 /* Safe area for mobile notch */

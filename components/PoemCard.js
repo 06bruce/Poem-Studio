@@ -35,12 +35,14 @@ function isEditableWindow(createdAt) {
   return diffInMinutes <= 10
 }
 
+// Fallback only — every current caller passes a richer `presentation` from
+// lib/poemPresentation.js's MOOD_PALETTES, which is the real source of truth.
 const moodThemes = {
-  happy: { bg: null, color: '#fbbf24' },
-  sad: { bg: null, color: '#60a5fa' },
-  peaceful: { bg: null, color: '#86efac' },
-  mysterious: { bg: null, color: '#c084fc' },
-  neutral: { bg: null, color: '#9ca3af' }
+  happy: { bg: null, color: '#f2d9a3' },
+  sad: { bg: null, color: '#7fb8d9' },
+  peaceful: { bg: null, color: '#8fd4ae' },
+  mysterious: { bg: null, color: '#c9a8f5' },
+  neutral: { bg: null, color: '#e3a83f' }
 }
 
 function PoemCard({
@@ -110,7 +112,7 @@ function PoemCard({
     palette: { accent: moodTheme.color },
     typography: 'medium',
     cardVariant: 'standard',
-    authorAura: 'linear-gradient(135deg, #60a5fa, #a855f7)',
+    authorAura: 'linear-gradient(135deg, #e3a83f, #9b7fd4)',
     moodLabel: poem.mood || poem.theme || 'General'
   }, [moodTheme.color, poem._id, poem.id, poem.mood, poem.theme, presentation])
 
@@ -419,7 +421,7 @@ function PoemCard({
         <div className="flex items-center gap-3">
           <div
             className="w-2 h-2 rounded-full"
-            style={{ backgroundColor: moodTheme.color, boxShadow: `0 0 8px ${moodTheme.color}60` }}
+            style={{ backgroundColor: visual.palette.accent, boxShadow: `0 0 8px ${visual.palette.accent}60` }}
             title={`Atmosphere: ${poem.mood}`}
           />
           <button onClick={onRead} className="rounded-full bg-white/10 p-2 text-slate-300 transition hover:bg-white/20 hover:text-white" aria-label="Open read mode"><FiBookOpen size={16} /></button>
@@ -435,7 +437,7 @@ function PoemCard({
       </div>
 
       <div className="mb-6">
-        <h3 className={clsx('mb-4 font-bold leading-tight text-slate-100', visual.cardVariant === 'featured' ? 'text-3xl sm:text-5xl' : visual.typography === 'short' ? 'text-2xl sm:text-4xl' : 'text-xl sm:text-2xl')}>{poem.title}</h3>
+        <h3 className={clsx('font-display mb-4 font-semibold leading-tight text-slate-100', visual.cardVariant === 'featured' ? 'text-3xl sm:text-5xl' : visual.typography === 'short' ? 'text-2xl sm:text-4xl' : 'text-xl sm:text-2xl')}>{poem.title}</h3>
 
         <div className={clsx('relative mb-8', visual.typography === 'short' ? 'space-y-3' : 'space-y-1')}>
           {poemContent.split('\n').map((line, idx) => {
@@ -529,7 +531,7 @@ function PoemCard({
                       }
                     }}
                     disabled={isExplaining}
-                    className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-600/10 text-blue-400 text-[10px] font-bold uppercase tracking-wider hover:bg-blue-600/20 transition-all disabled:opacity-50"
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-purple-600/10 text-purple-400 text-[10px] font-bold uppercase tracking-wider hover:bg-purple-600/20 transition-all disabled:opacity-50"
                   >
                     <FiZap size={12} className={isExplaining ? 'animate-pulse' : ''} />
                     {isExplaining ? 'Interpreting...' : 'Ask Muse to Explain'}

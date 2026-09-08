@@ -1,7 +1,10 @@
 'use client';
 import React, { useEffect, useRef } from 'react'
 
-const moodColors = {
+// Dark ("ink") mode: bright specks screen-blended over the dark page read as
+// falling starlight/snow. Light ("paper") mode inverts the metaphor — darker,
+// ink-toned specks multiply-blended over the pale page read as falling ink.
+const moodColorsDark = {
   happy: { r: 255, g: 215, b: 100 },
   sad: { r: 120, g: 160, b: 255 },
   peaceful: { r: 140, g: 230, b: 170 },
@@ -11,7 +14,17 @@ const moodColors = {
   neutral: { r: 255, g: 255, b: 255 },
 }
 
-export default function WeatherEffect({ mood = 'neutral' }) {
+const moodColorsLight = {
+  happy: { r: 181, g: 128, b: 20 },
+  sad: { r: 60, g: 90, b: 170 },
+  peaceful: { r: 50, g: 120, b: 85 },
+  mysterious: { r: 91, g: 63, b: 150 },
+  passionate: { r: 176, g: 58, b: 78 },
+  melancholy: { r: 90, g: 100, b: 120 },
+  neutral: { r: 28, g: 26, b: 43 },
+}
+
+export default function WeatherEffect({ mood = 'neutral', theme = 'dark' }) {
   const canvasRef = useRef(null)
   const animationRef = useRef(null)
 
@@ -28,6 +41,7 @@ export default function WeatherEffect({ mood = 'neutral' }) {
     const particles = []
     const particleCount = canvas.width < 768 ? 24 : 60
 
+    const moodColors = theme === 'light' ? moodColorsLight : moodColorsDark
     const color = moodColors[mood] || moodColors.neutral
 
     class Particle {
@@ -133,13 +147,13 @@ export default function WeatherEffect({ mood = 'neutral' }) {
       window.removeEventListener('resize', handleResize)
       document.removeEventListener('visibilitychange', handleVisibility)
     }
-  }, [mood])
+  }, [mood, theme])
 
   return (
     <canvas
       ref={canvasRef}
       className="fixed inset-0 pointer-events-none z-10"
-      style={{ mixBlendMode: 'screen' }}
+      style={{ mixBlendMode: theme === 'light' ? 'multiply' : 'screen' }}
       aria-hidden="true"
     />
   )
