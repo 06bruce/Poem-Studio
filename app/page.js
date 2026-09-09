@@ -1,16 +1,10 @@
 'use client';
 import React, { useCallback, useRef, useState } from 'react'
+import dynamic from 'next/dynamic'
 import Header from '../components/Header'
 import PoemList from '../components/PoemList'
-import Notifications from '../components/Notifications'
-import SignUp from '../components/SignUp'
-import SignIn from '../components/SignIn'
-import WeatherEffect from '../components/WeatherEffect'
-import UserSearch from '../components/UserSearch'
-import TrendingUsers from '../components/TrendingUsers'
 import StoriesBar from '../components/StoriesBar'
 import BottomNav from '../components/BottomNav'
-import ComposeModal from '../components/ComposeModal'
 import DailyPrompt from '../components/DailyPrompt'
 import Portal from '../components/Portal'
 import { useAuth } from '../contexts/AuthContext'
@@ -18,6 +12,21 @@ import { useTheme } from '../contexts/ThemeContext'
 import { cachedFetch } from '../lib/clientCache'
 import { useNotificationStream } from '../lib/hooks/useNotificationStream'
 import { useRouter } from 'next/navigation'
+
+// None of these are needed to paint the default "home" tab, so their JS is
+// split out of the initial bundle and only fetched once a reader actually
+// opens auth, compose, explore, or activity — this was a meaningful chunk of
+// the JS being parsed/executed before first paint for a page that mostly
+// just needs to render the poem feed.
+const SignUp = dynamic(() => import('../components/SignUp'))
+const SignIn = dynamic(() => import('../components/SignIn'))
+const ComposeModal = dynamic(() => import('../components/ComposeModal'))
+const UserSearch = dynamic(() => import('../components/UserSearch'))
+const TrendingUsers = dynamic(() => import('../components/TrendingUsers'))
+const Notifications = dynamic(() => import('../components/Notifications'))
+// Purely decorative canvas effect — never blocks content, safe to defer and
+// client-only (it reads window/canvas immediately on mount).
+const WeatherEffect = dynamic(() => import('../components/WeatherEffect'), { ssr: false })
 
 function MainContent() {
   const { user, logout } = useAuth()

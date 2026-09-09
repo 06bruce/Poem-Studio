@@ -36,10 +36,10 @@
     "typescript": "^5"
   },
   "browserslist": [
-    "chrome >= 91",
-    "edge >= 91",
-    "firefox >= 90",
-    "safari >= 15",
-    "opera >= 77"
+    "chrome >= 100",
+    "edge >= 100",
+    "firefox >= 100",
+    "safari >= 16",
+    "opera >= 86"
   ]
 }
