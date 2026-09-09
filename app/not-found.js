@@ -11,8 +11,8 @@ export default function NotFound() {
             <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-600/5 rounded-full blur-[120px] -z-10 animate-pulse" style={{ animationDelay: '2s' }}></div>
 
             <div className="text-center max-w-lg mx-auto glass rounded-[2.5rem] p-10 sm:p-16 animate-fadeIn">
-                <div className="text-7xl sm:text-8xl font-black text-gradient mb-6">404</div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-slate-100 mb-4">
+                <div className="font-display text-7xl sm:text-8xl font-semibold italic text-gradient mb-6">404</div>
+                <h1 className="font-display text-2xl sm:text-3xl font-semibold text-slate-100 mb-4">
                     Lost in the Verses
                 </h1>
                 <p className="text-slate-400 leading-relaxed mb-10 text-sm sm:text-base">

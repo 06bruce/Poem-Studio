@@ -2,13 +2,15 @@
 import React, { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { FiSun, FiMoon, FiLogOut, FiBell, FiUser, FiMenu, FiX, FiShield } from 'react-icons/fi'
+import { FiSun, FiMoon, FiCloudSnow, FiCloud, FiLogOut, FiBell, FiUser, FiMenu, FiX, FiShield } from 'react-icons/fi'
 import { useAuth } from '../contexts/AuthContext'
+import { useTheme } from '../contexts/ThemeContext'
 import { useRouter } from 'next/navigation'
 import { toast } from '../contexts/ToastContext'
 
 export default function Header({ onToggleSnow, showSnow, onAuthClick, onNotificationsClick, unreadCount = 0 }) {
   const { user, logout } = useAuth()
+  const { theme, toggleTheme } = useTheme()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const router = useRouter()
 
@@ -33,7 +35,7 @@ export default function Header({ onToggleSnow, showSnow, onAuthClick, onNotifica
           />
         </div>
         <div className="flex flex-col gap-0.5">
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tighter text-gradient leading-none">Poem Studio</h1>
+          <h1 className="font-display text-xl sm:text-2xl md:text-3xl font-semibold italic tracking-tight text-gradient leading-none">Poem Studio</h1>
           <p className="text-[8px] sm:text-[10px] md:text-xs text-slate-500 font-bold uppercase tracking-extra-widest hidden xs:block text-shadow-glow">Sanctuary of Verses</p>
         </div>
       </Link>
@@ -100,13 +102,25 @@ export default function Header({ onToggleSnow, showSnow, onAuthClick, onNotifica
           </button>
         )}
         <button
-          aria-label={showSnow ? 'Disable weather effects' : 'Enable weather effects'}
+          aria-label={theme === 'dark' ? 'Switch to paper (light) mode' : 'Switch to ink (dark) mode'}
+          title={theme === 'dark' ? 'Paper mode' : 'Ink mode'}
+          onClick={toggleTheme}
+          className="p-2.5 rounded-xl glass hover:bg-slate-700/50 transition-all duration-300 group min-h-[44px] min-w-[44px] flex items-center justify-center"
+        >
+          {theme === 'dark' ?
+            <FiSun className="w-5 h-5 text-amber-400 group-hover:rotate-45 transition-transform" /> :
+            <FiMoon className="w-5 h-5 text-blue-300 group-hover:-rotate-12 transition-transform" />
+          }
+        </button>
+        <button
+          aria-label={showSnow ? 'Turn off falling stars' : 'Turn on falling stars'}
+          title={showSnow ? 'Falling stars: on' : 'Falling stars: off'}
           onClick={onToggleSnow}
           className="p-2.5 rounded-xl glass hover:bg-slate-700/50 transition-all duration-300 group min-h-[44px] min-w-[44px] flex items-center justify-center"
         >
           {showSnow ?
-            <FiSun className="w-5 h-5 text-amber-400 group-hover:rotate-45 transition-transform" /> :
-            <FiMoon className="w-5 h-5 text-blue-300 group-hover:-rotate-12 transition-transform" />
+            <FiCloudSnow className="w-5 h-5 text-blue-300 group-hover:scale-110 transition-transform" /> :
+            <FiCloud className="w-5 h-5 text-slate-400 group-hover:scale-110 transition-transform" />
           }
         </button>
       </div>
@@ -171,11 +185,18 @@ export default function Header({ onToggleSnow, showSnow, onAuthClick, onNotifica
                   )}
                 </button>
                 <button
+                  onClick={() => { toggleTheme(); setMobileMenuOpen(false); }}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/5 transition-colors text-left min-h-[48px]"
+                >
+                  {theme === 'dark' ? <FiSun className="w-5 h-5 text-amber-400" /> : <FiMoon className="w-5 h-5 text-blue-300" />}
+                  <span className="text-sm text-slate-200">{theme === 'dark' ? 'Switch to Paper Mode' : 'Switch to Ink Mode'}</span>
+                </button>
+                <button
                   onClick={() => { onToggleSnow(); setMobileMenuOpen(false); }}
                   className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/5 transition-colors text-left min-h-[48px]"
                 >
-                  {showSnow ? <FiSun className="w-5 h-5 text-amber-400" /> : <FiMoon className="w-5 h-5 text-blue-300" />}
-                  <span className="text-sm text-slate-200">{showSnow ? 'Disable Weather' : 'Enable Weather'}</span>
+                  {showSnow ? <FiCloudSnow className="w-5 h-5 text-blue-300" /> : <FiCloud className="w-5 h-5 text-slate-400" />}
+                  <span className="text-sm text-slate-200">{showSnow ? 'Turn Off Falling Stars' : 'Turn On Falling Stars'}</span>
                 </button>
                 <div className="border-t border-white/5 my-2"></div>
                 <button
@@ -195,11 +216,18 @@ export default function Header({ onToggleSnow, showSnow, onAuthClick, onNotifica
                   Sign In / Sign Up
                 </button>
                 <button
+                  onClick={() => { toggleTheme(); setMobileMenuOpen(false); }}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/5 transition-colors text-left min-h-[48px]"
+                >
+                  {theme === 'dark' ? <FiSun className="w-5 h-5 text-amber-400" /> : <FiMoon className="w-5 h-5 text-blue-300" />}
+                  <span className="text-sm text-slate-200">{theme === 'dark' ? 'Switch to Paper Mode' : 'Switch to Ink Mode'}</span>
+                </button>
+                <button
                   onClick={() => { onToggleSnow(); setMobileMenuOpen(false); }}
                   className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/5 transition-colors text-left min-h-[48px]"
                 >
-                  {showSnow ? <FiSun className="w-5 h-5 text-amber-400" /> : <FiMoon className="w-5 h-5 text-blue-300" />}
-                  <span className="text-sm text-slate-200">{showSnow ? 'Disable Weather' : 'Enable Weather'}</span>
+                  {showSnow ? <FiCloudSnow className="w-5 h-5 text-blue-300" /> : <FiCloud className="w-5 h-5 text-slate-400" />}
+                  <span className="text-sm text-slate-200">{showSnow ? 'Turn Off Falling Stars' : 'Turn On Falling Stars'}</span>
                 </button>
               </>
             )}
