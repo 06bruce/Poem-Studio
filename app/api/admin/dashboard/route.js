@@ -4,6 +4,7 @@ import User from '@/lib/models/User';
 import Poem from '@/lib/models/Poem';
 import Story from '@/lib/models/Story';
 import { requireAdmin } from '@/lib/utils/adminAuth';
+import { buildPoemListPipeline } from '@/lib/poemQueries';
 
 export async function GET(request) {
     try {
@@ -49,7 +50,7 @@ export async function GET(request) {
             Poem.countDocuments({ createdAt: { $gte: thisMonth } }),
             Poem.countDocuments({ createdAt: { $gte: lastMonth, $lt: thisMonth } }),
             User.find().sort({ createdAt: -1 }).limit(8).select('username email avatar role createdAt totalPoems currentStreak'),
-            Poem.find().sort({ createdAt: -1 }).limit(8).populate('author', 'username avatar'),
+            Poem.aggregate(buildPoemListPipeline({ limit: 8 })),
             User.find().sort({ totalPoems: -1 }).limit(5).select('username avatar totalPoems currentStreak longestStreak followers'),
         ]);
 

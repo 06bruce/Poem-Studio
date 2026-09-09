@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useSession, signOut } from "next-auth/react";
 import { clearCache } from '../lib/clientCache';
+import { clearRuntimeCaches } from '../lib/serviceWorker';
 
 const AuthContext = createContext();
 
@@ -143,6 +144,7 @@ export const AuthProvider = ({ children }) => {
       localStorage.removeItem('user');
     }
     clearCache();
+    clearRuntimeCaches();
     setUser(null);
     setError(null);
     if (session) {

@@ -62,8 +62,13 @@ export async function POST(request, { params }) {
       }
     }
 
-    await poem.populate('author', 'username');
-    return NextResponse.json(poem);
+    // A small delta instead of the whole (potentially heavily-commented)
+    // poem — callers merge this into their existing local copy.
+    return NextResponse.json({
+      _id: poem._id,
+      likeCount: poem.likes.length,
+      likedByMe: true,
+    });
 
   } catch (error) {
     console.error('Like poem error:', error);

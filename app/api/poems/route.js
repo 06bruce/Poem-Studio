@@ -3,39 +3,72 @@ import connectDB from '@/lib/mongodb';
 import Poem from '@/lib/models/Poem';
 import User from '@/lib/models/User';
 import { getAuthenticatedUser } from '@/lib/utils/auth';
+import { buildPoemListPipeline, buildPoemsETag } from '@/lib/poemQueries';
+import { getCached, setCached, invalidateCached } from '@/lib/serverCache';
+
+// First page of the anonymous (no `before` cursor, no logged-in user) feed is
+// identical for every visitor, so it's worth a short-lived process-local cache
+// on top of the per-request query trimming below.
+const ANON_FIRST_PAGE_TTL_MS = 20000;
 
 // Get all poems
 export async function GET(request) {
   try {
-    await connectDB();
-
     const { searchParams } = new URL(request.url);
     const limit = Math.min(parseInt(searchParams.get('limit') || '20'), 50);
     const before = searchParams.get('before'); // cursor-based pagination
 
-    const query = before ? { createdAt: { $lt: new Date(before) } } : {};
+    // Optional — the explore feed is public, but we still personalize
+    // `likedByMe` when a valid session/token is present.
+    const currentUser = await getAuthenticatedUser(request).catch(() => null);
+    const isAnonymousFirstPage = !before && !currentUser;
+    const cacheKey = `poems:explore:first:${limit}`;
 
-    const poems = await Poem.find(query)
-      .populate('author', 'username avatar')
-      .populate('coAuthors', 'username')
-      .populate('comments.user', 'username avatar')
-      .populate('annotations.userId', 'username avatar')
-      .sort({ createdAt: -1 })
-      .limit(limit)
-      .lean();
+    let payload = isAnonymousFirstPage ? getCached(cacheKey) : undefined;
 
-    const nextCursor = poems.length === limit
-      ? poems[poems.length - 1].createdAt.toISOString()
-      : null
+    if (!payload) {
+      await connectDB();
+      const query = before ? { createdAt: { $lt: new Date(before) } } : {};
+      const poems = await Poem.aggregate(buildPoemListPipeline({
+        match: query,
+        limit,
+        currentUserId: currentUser?._id || null,
+      }));
+
+      const nextCursor = poems.length === limit
+        ? poems[poems.length - 1].createdAt.toISOString()
+        : null;
+
+      payload = {
+        items: poems,
+        nextCursor,
+        hasMore: Boolean(nextCursor),
+        etag: buildPoemsETag(poems),
+      };
+
+      if (isAnonymousFirstPage) setCached(cacheKey, payload, ANON_FIRST_PAGE_TTL_MS);
+    }
+
+    const ifNoneMatch = request.headers.get('if-none-match');
+    if (ifNoneMatch && ifNoneMatch === payload.etag) {
+      return new NextResponse(null, { status: 304 });
+    }
+
+    // A personalized response (likedByMe) must never be cached by a shared/CDN
+    // cache — only the anonymous, identical-for-everyone response is `public`.
+    const cacheControl = currentUser
+      ? 'private, max-age=15, stale-while-revalidate=30'
+      : 'public, s-maxage=30, stale-while-revalidate=60';
 
     return NextResponse.json({
-      items: poems,
-      nextCursor,
-      hasMore: Boolean(nextCursor)
+      items: payload.items,
+      nextCursor: payload.nextCursor,
+      hasMore: payload.hasMore,
     }, {
       headers: {
-        'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60'
-      }
+        'Cache-Control': cacheControl,
+        ETag: payload.etag,
+      },
     });
   } catch (error) {
     console.error('Get poems error:', error);
@@ -84,6 +117,7 @@ export async function POST(request) {
     });
 
     await poem.save();
+    invalidateCached('poems:explore:first:');
 
     // Update writing streak
     const now = new Date();

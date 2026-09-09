@@ -1,5 +1,5 @@
 'use client';
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useRef, useState } from 'react'
 import Header from '../components/Header'
 import PoemList from '../components/PoemList'
 import Notifications from '../components/Notifications'
@@ -16,6 +16,7 @@ import Portal from '../components/Portal'
 import { useAuth } from '../contexts/AuthContext'
 import { useTheme } from '../contexts/ThemeContext'
 import { cachedFetch } from '../lib/clientCache'
+import { useNotificationStream } from '../lib/hooks/useNotificationStream'
 import { useRouter } from 'next/navigation'
 
 function MainContent() {
@@ -60,15 +61,14 @@ function MainContent() {
     }
   }, [logout, user])
 
-  useEffect(() => {
-    if (!user) return
-    const initial = setTimeout(fetchUnreadCount, 0)
-    const interval = setInterval(fetchUnreadCount, 30000) // Every 30s
-    return () => {
-      clearTimeout(initial)
-      clearInterval(interval)
-    }
-  }, [user, fetchUnreadCount])
+  // Pushes unread-count refreshes over SSE instead of polling every 30s;
+  // transparently falls back to the same polling if SSE isn't available.
+  useNotificationStream({
+    enabled: Boolean(user),
+    token: typeof window !== 'undefined' ? localStorage.getItem('authToken') : null,
+    pollFn: fetchUnreadCount,
+    pollIntervalMs: 30000,
+  })
 
 
   const poemListRef = useRef(null)

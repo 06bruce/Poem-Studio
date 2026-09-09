@@ -69,7 +69,11 @@ function PoemCard({
   const [showComments, setShowComments] = React.useState(false)
   const [commentText, setCommentText] = React.useState('')
   const [isFinishingComment, setIsFinishingComment] = React.useState(false)
-  const [localComments, setLocalComments] = React.useState(poem.comments || [])
+  const [localComments, setLocalComments] = React.useState(poem.comments || poem.commentsPreview || [])
+  const [commentsLoaded, setCommentsLoaded] = React.useState(Boolean(poem.comments))
+  const [isLoadingComments, setIsLoadingComments] = React.useState(false)
+  const [localAnnotations, setLocalAnnotations] = React.useState(poem.annotations || [])
+  const [annotationsLoaded, setAnnotationsLoaded] = React.useState(Boolean(poem.annotations))
   const [isSaved, setIsSaved] = React.useState(false)
   const [heartBurst, setHeartBurst] = React.useState(false)
   const [isVisible, setIsVisible] = React.useState(false)
@@ -135,11 +139,67 @@ function PoemCard({
 
   const poemContent = poem.content || (Array.isArray(poem.lines) ? poem.lines.join('\n') : '')
   const authorName = poem.authorName || poem.author?.username || 'Anonymous'
-  const likeCount = poem.likes?.length || 0
+  const likeCount = poem.likeCount ?? (poem.likes?.length || 0)
+  const commentCount = commentsLoaded ? localComments.length : (poem.commentCount ?? localComments.length)
+
+  // Full-detail poem objects (single-poem page, profile grid) already carry
+  // the complete comments/annotations arrays — sync those in directly. Feed
+  // cards only get counts/previews and lazy-load the rest below.
+  React.useEffect(() => {
+    if (poem.comments) {
+      setLocalComments(poem.comments)
+      setCommentsLoaded(true)
+    }
+  }, [poem.comments])
 
   React.useEffect(() => {
-    setLocalComments(poem.comments || [])
-  }, [poem.comments])
+    if (poem.annotations) {
+      setLocalAnnotations(poem.annotations)
+      setAnnotationsLoaded(true)
+    }
+  }, [poem.annotations])
+
+  // Lazy-load the full comment thread only once a reader actually opens it.
+  React.useEffect(() => {
+    if (!showComments || commentsLoaded) return undefined
+    const total = poem.commentCount ?? localComments.length
+    if (total <= localComments.length) {
+      setCommentsLoaded(true)
+      return undefined
+    }
+    let cancelled = false
+    setIsLoadingComments(true)
+    fetch(`/api/poems/${poem._id}/comments`)
+      .then((res) => (res.ok ? res.json() : Promise.reject()))
+      .then((data) => {
+        if (cancelled) return
+        setLocalComments(data.comments || [])
+        setCommentsLoaded(true)
+      })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setIsLoadingComments(false) })
+    return () => { cancelled = true }
+  }, [showComments, commentsLoaded, poem._id, poem.commentCount, localComments.length])
+
+  // Lazy-load full annotation content (with avatars) once the card scrolls
+  // into view — only when the list response flagged that any line has one.
+  React.useEffect(() => {
+    if (!isVisible || annotationsLoaded) return undefined
+    if (!(poem.annotationLines?.length > 0)) {
+      setAnnotationsLoaded(true)
+      return undefined
+    }
+    let cancelled = false
+    fetch(`/api/poems/${poem._id}/annotations`)
+      .then((res) => (res.ok ? res.json() : Promise.reject()))
+      .then((data) => {
+        if (cancelled) return
+        setLocalAnnotations(data.annotations || [])
+        setAnnotationsLoaded(true)
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [isVisible, annotationsLoaded, poem._id, poem.annotationLines])
 
   const handleCopy = async () => {
     const text = `${poem.title}\n\n${poemContent}\n\n- ${authorName}`
@@ -293,9 +353,13 @@ function PoemCard({
       })
       if (response.ok) {
         toast.success('Thought shared ✨')
-        const submitted = await response.json()
-        if (submitted.comments) setLocalComments(submitted.comments)
-        else setLocalComments((comments) => comments.filter((comment) => comment._id !== optimisticId))
+        const result = await response.json()
+        if (result.comment) {
+          setLocalComments((comments) => comments.map((comment) => comment._id === optimisticId ? result.comment : comment))
+          setCommentsLoaded(true)
+        } else {
+          setLocalComments((comments) => comments.filter((comment) => comment._id !== optimisticId))
+        }
       } else {
         toast.error('Failed to share thought')
         setLocalComments((comments) => comments.filter((comment) => comment._id !== optimisticId))
@@ -441,7 +505,7 @@ function PoemCard({
 
         <div className={clsx('relative mb-8', visual.typography === 'short' ? 'space-y-3' : 'space-y-1')}>
           {poemContent.split('\n').map((line, idx) => {
-            const lineAnnotations = poem.annotations?.filter(a => a.lineIndex === idx) || []
+            const lineAnnotations = localAnnotations?.filter(a => a.lineIndex === idx) || []
             return (
               <div key={idx} className={clsx('group/line relative flex items-center gap-4 transition-all duration-500', isVisible ? 'translate-y-0 opacity-100' : 'translate-y-2 opacity-0')} style={{ transitionDelay: isVisible ? `${Math.min(idx * 45, 600)}ms` : '0ms' }}>
                 <button
@@ -521,7 +585,11 @@ function PoemCard({
                           });
                           if (saveRes.ok) {
                             toast.success('The Muse has spoken ✨');
-                            // Local refresh logic would go here
+                            const savedAnnotation = await saveRes.json().catch(() => null);
+                            if (savedAnnotation) {
+                              setLocalAnnotations((prev) => [...prev, savedAnnotation]);
+                              setAnnotationsLoaded(true);
+                            }
                           }
                         }
                       } catch (err) {
@@ -543,7 +611,7 @@ function PoemCard({
               </div>
 
               <div className="space-y-4 mb-6 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
-                {(poem.annotations?.filter(a => a.lineIndex === selectedLine) || []).map((a, ai) => (
+                {(localAnnotations?.filter(a => a.lineIndex === selectedLine) || []).map((a, ai) => (
                   <div key={a._id || ai} className="p-3 rounded-xl bg-white/5 border border-white/5">
                     <div className="flex items-center justify-between mb-1">
                       <span className="text-[10px] font-bold text-blue-400">@{a.username}</span>
@@ -552,7 +620,7 @@ function PoemCard({
                     <p className="text-sm text-slate-300 leading-relaxed">{a.content}</p>
                   </div>
                 ))}
-                {(poem.annotations?.filter(a => a.lineIndex === selectedLine) || []).length === 0 && (
+                {(localAnnotations?.filter(a => a.lineIndex === selectedLine) || []).length === 0 && (
                   <p className="text-center py-4 text-slate-500 text-sm italic">Be the first to share a thought on this line...</p>
                 )}
               </div>
@@ -581,6 +649,11 @@ function PoemCard({
                         })
                         if (response.ok) {
                           toast.success('Your thought has been preserved.')
+                          const savedAnnotation = await response.json().catch(() => null)
+                          if (savedAnnotation) {
+                            setLocalAnnotations((prev) => [...prev, savedAnnotation])
+                            setAnnotationsLoaded(true)
+                          }
                           setAnnotationText('')
                         }
                       } catch (err) {
@@ -632,7 +705,7 @@ function PoemCard({
               aria-label="Comments"
             >
               <FiMessageSquare size={22} />
-                <span className="text-xs font-bold">{localComments.length || ''}</span>
+                <span className="text-xs font-bold">{commentCount || ''}</span>
             </button>
 
             <button
@@ -660,7 +733,9 @@ function PoemCard({
         {showComments && (
           <div className="mt-5 pt-5 border-t border-white/5 animate-fadeIn">
             <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar mb-4">
-              {localComments.length > 0 ? (
+              {isLoadingComments ? (
+                <p className="text-center py-4 text-slate-600 text-xs italic">Loading thoughts...</p>
+              ) : localComments.length > 0 ? (
                 localComments.map((comment, ci) => (
                   <div key={comment._id || ci} className="flex gap-3">
                     <div className="w-7 h-7 rounded-full overflow-hidden bg-slate-800 flex-shrink-0 flex items-center justify-center text-[10px] font-bold text-slate-400">

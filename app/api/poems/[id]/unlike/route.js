@@ -40,9 +40,12 @@ export async function POST(request, { params }) {
     );
 
     await poem.save();
-    await poem.populate('author', 'username');
 
-    return NextResponse.json(poem);
+    return NextResponse.json({
+      _id: poem._id,
+      likeCount: poem.likes.length,
+      likedByMe: false,
+    });
   } catch (error) {
     console.error('Unlike poem error:', error);
     return NextResponse.json(

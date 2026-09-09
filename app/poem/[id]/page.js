@@ -38,7 +38,9 @@ export default function PoemDetail() {
   }, [id])
 
   const isLikedByUser = () => {
-    if (!user || !poem?.likes) return false
+    if (!user || !poem) return false
+    if (poem.likedByMe !== undefined) return poem.likedByMe
+    if (!poem.likes) return false
     return poem.likes.some(like => like.userId === user.id || like.userId === user._id)
   }
 
@@ -50,9 +52,9 @@ export default function PoemDetail() {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       if (!response.ok) throw new Error('Failed to like poem')
-      const updatedPoem = await response.json()
+      const updated = await response.json()
       invalidateCache('/api/poems/')
-      setPoem(updatedPoem)
+      setPoem((current) => ({ ...current, ...updated }))
       toast.success('Liked!')
     } catch (err) {
       console.error('Like error:', err)
@@ -68,9 +70,9 @@ export default function PoemDetail() {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       if (!response.ok) throw new Error('Failed to unlike poem')
-      const updatedPoem = await response.json()
+      const updated = await response.json()
       invalidateCache('/api/poems/')
-      setPoem(updatedPoem)
+      setPoem((current) => ({ ...current, ...updated }))
       toast.success('Unliked')
     } catch (err) {
       console.error('Unlike error:', err)

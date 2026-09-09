@@ -95,36 +95,34 @@ const PoemList = React.forwardRef(({ refreshTrigger }, ref) => {
   const handleLike = useCallback(async (poemId) => {
     const previous = poems.find((poem) => poem._id === poemId)
     if (!previous) return
-    const userId = user?.id || user?._id
-    updatePoem(poemId, (poem) => ({ ...poem, likes: [...(poem.likes || []), { userId }] }))
+    updatePoem(poemId, (poem) => ({ ...poem, likedByMe: true, likeCount: (poem.likeCount ?? poem.likes?.length ?? 0) + 1 }))
     try {
       const response = await fetch(`/api/poems/${poemId}/like`, { method: 'POST', headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` } })
       if (!response.ok) throw new Error((await response.json()).error || 'Failed to like poem')
       const updated = await response.json()
-      updatePoem(poemId, () => updated)
+      updatePoem(poemId, (poem) => ({ ...poem, ...updated }))
       invalidateCache('/api/poems')
     } catch (err) {
       updatePoem(poemId, () => previous)
       toast.error(err.message || 'Failed to like poem')
     }
-  }, [poems, updatePoem, user])
+  }, [poems, updatePoem])
 
   const handleUnlike = useCallback(async (poemId) => {
     const previous = poems.find((poem) => poem._id === poemId)
     if (!previous) return
-    const userId = user?.id || user?._id
-    updatePoem(poemId, (poem) => ({ ...poem, likes: (poem.likes || []).filter((like) => like.userId !== userId) }))
+    updatePoem(poemId, (poem) => ({ ...poem, likedByMe: false, likeCount: Math.max(0, (poem.likeCount ?? poem.likes?.length ?? 0) - 1) }))
     try {
       const response = await fetch(`/api/poems/${poemId}/unlike`, { method: 'POST', headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` } })
       if (!response.ok) throw new Error((await response.json()).error || 'Failed to unlike poem')
       const updated = await response.json()
-      updatePoem(poemId, () => updated)
+      updatePoem(poemId, (poem) => ({ ...poem, ...updated }))
       invalidateCache('/api/poems')
     } catch (err) {
       updatePoem(poemId, () => previous)
       toast.error(err.message || 'Failed to unlike poem')
     }
-  }, [poems, updatePoem, user])
+  }, [poems, updatePoem])
 
   const handleShare = async (poemId) => {
     setSharingId(poemId)
@@ -189,7 +187,7 @@ const PoemList = React.forwardRef(({ refreshTrigger }, ref) => {
             const poem = poems[virtualRow.index]
             const presentation = getPoemPresentation(poem, virtualRow.index)
             return <div key={poem._id} ref={virtualizer.measureElement} data-index={virtualRow.index} id={`poem-card-${poem._id}`} className="absolute left-0 top-0 w-full pb-6" style={{ transform: `translateY(${virtualRow.start}px)` }}>
-              {editingId === poem._id ? <div className="glass rounded-2xl p-6"><h3 className="mb-4 text-lg font-semibold">Edit Poem</h3><div className="space-y-4"><input value={editForm.title} onChange={(event) => setEditForm((form) => ({ ...form, title: event.target.value }))} className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2 outline-none" /><textarea value={editForm.content} onChange={(event) => setEditForm((form) => ({ ...form, content: event.target.value }))} rows={6} className="w-full resize-none rounded-lg border border-gray-700 bg-gray-800 px-4 py-2 outline-none" /><div className="flex gap-2"><button onClick={() => handleEditSubmit(poem._id)} className="rounded-lg bg-green-600 px-4 py-2">Save Changes</button><button onClick={() => setEditingId(null)} className="rounded-lg bg-gray-700 px-4 py-2">Cancel</button></div></div></div> : <PoemCard poem={poem} presentation={presentation} currentUserId={user?.id || user?._id} currentUserLiked={Boolean(poem.likes?.some((like) => like.userId === (user?.id || user?._id)))} onLike={handleLike} onUnlike={handleUnlike} onEdit={handleEdit} onDelete={handleDelete} onRead={() => setReadIndex(virtualRow.index)} extraActions={<button onClick={() => handleShare(poem._id)} disabled={sharingId === poem._id} className="rounded-lg bg-gray-700 p-2 text-gray-300 transition hover:bg-gray-600 disabled:opacity-50" title="Share as image">{sharingId === poem._id ? <FiLoader className="animate-spin" size={16} /> : <FiShare2 size={16} />}</button>} />}
+              {editingId === poem._id ? <div className="glass rounded-2xl p-6"><h3 className="mb-4 text-lg font-semibold">Edit Poem</h3><div className="space-y-4"><input value={editForm.title} onChange={(event) => setEditForm((form) => ({ ...form, title: event.target.value }))} className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2 outline-none" /><textarea value={editForm.content} onChange={(event) => setEditForm((form) => ({ ...form, content: event.target.value }))} rows={6} className="w-full resize-none rounded-lg border border-gray-700 bg-gray-800 px-4 py-2 outline-none" /><div className="flex gap-2"><button onClick={() => handleEditSubmit(poem._id)} className="rounded-lg bg-green-600 px-4 py-2">Save Changes</button><button onClick={() => setEditingId(null)} className="rounded-lg bg-gray-700 px-4 py-2">Cancel</button></div></div></div> : <PoemCard poem={poem} presentation={presentation} currentUserId={user?.id || user?._id} currentUserLiked={poem.likedByMe ?? Boolean(poem.likes?.some((like) => like.userId === (user?.id || user?._id)))} onLike={handleLike} onUnlike={handleUnlike} onEdit={handleEdit} onDelete={handleDelete} onRead={() => setReadIndex(virtualRow.index)} extraActions={<button onClick={() => handleShare(poem._id)} disabled={sharingId === poem._id} className="rounded-lg bg-gray-700 p-2 text-gray-300 transition hover:bg-gray-600 disabled:opacity-50" title="Share as image">{sharingId === poem._id ? <FiLoader className="animate-spin" size={16} /> : <FiShare2 size={16} />}</button>} />}
             </div>
           })}
       </div>

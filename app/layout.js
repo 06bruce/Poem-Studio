@@ -4,6 +4,7 @@ import { AuthProvider } from '../contexts/AuthContext'
 import { ToastProvider } from '../contexts/ToastContext'
 import { ThemeProvider } from '../contexts/ThemeContext'
 import { SessionProvider } from "next-auth/react"
+import ServiceWorkerRegister from '../components/ServiceWorkerRegister'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
 const spaceGrotesk = Space_Grotesk({ subsets: ['latin'], variable: '--font-space' })
@@ -80,6 +81,7 @@ export default function RootLayout({ children }) {
           <ThemeProvider>
             <ToastProvider>
               <AuthProvider>
+                <ServiceWorkerRegister />
                 {children}
               </AuthProvider>
             </ToastProvider>

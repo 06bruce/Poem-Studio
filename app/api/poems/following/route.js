@@ -3,6 +3,7 @@ import connectDB from '@/lib/mongodb';
 import Poem from '@/lib/models/Poem';
 import User from '@/lib/models/User';
 import { verifyToken } from '@/lib/utils/auth';
+import { buildPoemListPipeline } from '@/lib/poemQueries';
 
 export async function GET(request) {
   try {
@@ -45,11 +46,11 @@ export async function GET(request) {
       query.createdAt = { $lt: new Date(before) };
     }
 
-    const poems = await Poem.find(query)
-      .populate('author', 'username avatar')
-      .sort({ createdAt: -1 })
-      .limit(limit)
-      .lean();
+    const poems = await Poem.aggregate(buildPoemListPipeline({
+      match: query,
+      limit,
+      currentUserId: decoded.userId,
+    }));
     
     const nextCursor = poems.length === limit
       ? poems[poems.length - 1].createdAt.toISOString()
