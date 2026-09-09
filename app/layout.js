@@ -1,13 +1,29 @@
 import './globals.css'
-import { Inter, Space_Grotesk, Orbitron } from 'next/font/google'
+import { Inter, Space_Grotesk, Orbitron, Fraunces } from 'next/font/google'
 import { AuthProvider } from '../contexts/AuthContext'
 import { ToastProvider } from '../contexts/ToastContext'
+import { ThemeProvider } from '../contexts/ThemeContext'
 import { SessionProvider } from "next-auth/react"
 import ServiceWorkerRegister from '../components/ServiceWorkerRegister'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
 const spaceGrotesk = Space_Grotesk({ subsets: ['latin'], variable: '--font-space' })
 const orbitron = Orbitron({ subsets: ['latin'], variable: '--font-orbitron' })
+const fraunces = Fraunces({ subsets: ['latin'], variable: '--font-fraunces', style: ['normal', 'italic'] })
+
+// Sets data-theme on <html> before first paint (reading the same localStorage
+// key ThemeContext persists to) so there's no flash of the wrong theme.
+const themeInitScript = `
+(function () {
+  try {
+    var stored = localStorage.getItem('theme');
+    var theme = stored === 'light' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', theme);
+  } catch (e) {
+    document.documentElement.setAttribute('data-theme', 'dark');
+  }
+})();
+`;
 
 export const metadata = {
   title: {
@@ -46,7 +62,9 @@ export const viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 5,
-  themeColor: '#0f172a',
+  // theme-color is managed manually as a <meta> tag in <head> below and kept
+  // in sync with the active theme by ThemeContext, since Next's static
+  // `themeColor` export can't change at runtime with the toggle.
 }
 
 export default function RootLayout({ children }) {
@@ -54,15 +72,20 @@ export default function RootLayout({ children }) {
     <html lang="en" suppressHydrationWarning>
       <head>
         <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#0c0e17" />
+        {/* eslint-disable-next-line react/no-danger */}
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
-      <body className={`${inter.variable} ${spaceGrotesk.variable} ${orbitron.variable} font-sans`}>
+      <body className={`${inter.variable} ${spaceGrotesk.variable} ${orbitron.variable} ${fraunces.variable} font-sans`}>
         <SessionProvider>
-          <ToastProvider>
-            <AuthProvider>
-              <ServiceWorkerRegister />
-              {children}
-            </AuthProvider>
-          </ToastProvider>
+          <ThemeProvider>
+            <ToastProvider>
+              <AuthProvider>
+                <ServiceWorkerRegister />
+                {children}
+              </AuthProvider>
+            </ToastProvider>
+          </ThemeProvider>
         </SessionProvider>
       </body>
     </html>

@@ -6,6 +6,7 @@ import PoemCard from '../../../components/PoemCard'
 import { useAuth } from '../../../contexts/AuthContext'
 import { toast } from '../../../contexts/ToastContext'
 import { cachedFetch, invalidateCache } from '../../../lib/clientCache'
+import { getPoemPresentation } from '../../../lib/poemPresentation'
 
 export default function PoemDetail() {
   const params = useParams()
@@ -213,6 +214,7 @@ export default function PoemDetail() {
           ) : (
             <PoemCard
               poem={poem}
+              presentation={getPoemPresentation(poem)}
               currentUserId={currentUserId}
               onLike={handleLike}
               onUnlike={handleUnlike}

@@ -14,12 +14,14 @@ import ComposeModal from '../components/ComposeModal'
 import DailyPrompt from '../components/DailyPrompt'
 import Portal from '../components/Portal'
 import { useAuth } from '../contexts/AuthContext'
+import { useTheme } from '../contexts/ThemeContext'
 import { cachedFetch } from '../lib/clientCache'
 import { useNotificationStream } from '../lib/hooks/useNotificationStream'
 import { useRouter } from 'next/navigation'
 
 function MainContent() {
   const { user, logout } = useAuth()
+  const { theme } = useTheme()
   const router = useRouter()
   const [activeTab, setActiveTab] = useState('home')
   const [mood, setMood] = useState('neutral')
@@ -199,7 +201,7 @@ function MainContent() {
       />
 
 
-      {showWeather && <WeatherEffect mood={mood} />}
+      {showWeather && <WeatherEffect mood={mood} theme={theme} />}
     </div>
   )
 }

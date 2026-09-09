@@ -9,6 +9,7 @@ import { cachedFetch, invalidateCache } from '../../../lib/clientCache';
 import PoemCard from '../../../components/PoemCard';
 import Header from '../../../components/Header';
 import BottomNav from '../../../components/BottomNav';
+import { getPoemPresentation } from '../../../lib/poemPresentation';
 
 export default function UserProfile() {
   const params = useParams();
@@ -345,10 +346,11 @@ export default function UserProfile() {
               </div>
             ) : (
               <div className="space-y-6">
-                {userPoems.map(poem => (
+                {userPoems.map((poem, index) => (
                   <PoemCard
                     key={poem._id}
                     poem={poem}
+                    presentation={getPoemPresentation(poem, index)}
                     currentUserId={user?._id || user?.id}
                     onLike={handleLike}
                     onUnlike={handleUnlike}
