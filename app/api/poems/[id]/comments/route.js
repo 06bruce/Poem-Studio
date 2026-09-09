@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Poem from '@/lib/models/Poem';
+import { stripBase64Avatars } from '@/lib/avatarSanitize';
 
 // Full comment thread for one poem, fetched lazily by the feed card only when
 // a reader actually opens the comment panel — the list endpoint only ships a
@@ -19,7 +20,7 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: 'Poem not found' }, { status: 404 });
     }
 
-    return NextResponse.json({ comments: poem.comments || [] }, {
+    return NextResponse.json({ comments: stripBase64Avatars(poem.comments || []) }, {
       headers: {
         'Cache-Control': 'public, s-maxage=15, stale-while-revalidate=30',
       },

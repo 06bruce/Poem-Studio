@@ -353,7 +353,7 @@ export default function StoriesBar() {
                 ))}
 
                 {stories.length === 0 && !user && (
-                    <div className="px-4 py-8 text-slate-600 text-xs italic">The air is quiet... be the first to speak.</div>
+                    <div className="px-4 py-8 text-slate-400 text-xs italic">The air is quiet... be the first to speak.</div>
                 )}
             </div>
 

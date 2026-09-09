@@ -3,6 +3,7 @@ import connectDB from '@/lib/mongodb';
 import User from '@/lib/models/User';
 import Poem from '@/lib/models/Poem';
 import { requireAdmin } from '@/lib/utils/adminAuth';
+import { stripBase64Avatars } from '@/lib/avatarSanitize';
 
 export async function GET(request) {
     try {
@@ -14,9 +15,10 @@ export async function GET(request) {
         await connectDB();
         const users = await User.find()
             .sort({ createdAt: -1 })
-            .select('username email avatar role bio createdAt totalPoems currentStreak longestStreak lastWrittenAt followers following badges');
+            .select('username email avatar role bio createdAt totalPoems currentStreak longestStreak lastWrittenAt followers following badges')
+            .lean();
 
-        return NextResponse.json(users);
+        return NextResponse.json(stripBase64Avatars(users));
     } catch (error) {
         console.error('Admin user fetch error:', error);
         return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 });
@@ -78,13 +80,14 @@ export async function PATCH(request) {
         if (bio !== undefined) updateFields.bio = bio;
 
         const user = await User.findByIdAndUpdate(userId, updateFields, { returnDocument: 'after' })
-            .select('username email avatar role bio createdAt totalPoems currentStreak longestStreak lastWrittenAt followers following badges');
+            .select('username email avatar role bio createdAt totalPoems currentStreak longestStreak lastWrittenAt followers following badges')
+            .lean();
 
         if (!user) {
             return NextResponse.json({ error: 'User not found' }, { status: 404 });
         }
 
-        return NextResponse.json({ message: 'User updated', user });
+        return NextResponse.json({ message: 'User updated', user: stripBase64Avatars(user) });
     } catch (error) {
         console.error('Admin user update error:', error);
         return NextResponse.json({ error: 'Failed to update user' }, { status: 500 });

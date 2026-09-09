@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import SharedPoem from '@/lib/models/SharedPoem';
 import { getAuthenticatedUser } from '@/lib/utils/auth';
+import { stripBase64Avatars } from '@/lib/avatarSanitize';
 
 // GET — poems shared to the current user
 export async function GET(request) {
@@ -23,7 +24,7 @@ export async function GET(request) {
             .limit(50)
             .lean();
 
-        return NextResponse.json(shared);
+        return NextResponse.json(stripBase64Avatars(shared));
     } catch (error) {
         console.error('Fetch shared poems error:', error);
         return NextResponse.json({ error: 'Server error' }, { status: 500 });

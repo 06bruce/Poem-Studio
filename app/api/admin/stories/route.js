@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Story from '@/lib/models/Story';
 import { requireAdmin } from '@/lib/utils/adminAuth';
+import { stripBase64Avatars } from '@/lib/avatarSanitize';
 
 export async function GET(request) {
     try {
@@ -13,9 +14,10 @@ export async function GET(request) {
         await connectDB();
         const stories = await Story.find()
             .sort({ createdAt: -1 })
-            .populate('userId', 'username email avatar');
+            .populate('userId', 'username email avatar')
+            .lean();
 
-        return NextResponse.json(stories);
+        return NextResponse.json(stripBase64Avatars(stories));
     } catch (error) {
         console.error('Admin story fetch error:', error);
         return NextResponse.json({ error: 'Failed to fetch stories' }, { status: 500 });

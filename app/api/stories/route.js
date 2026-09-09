@@ -3,6 +3,7 @@ import connectDB from '@/lib/mongodb';
 import Story from '@/lib/models/Story';
 import User from '@/lib/models/User';
 import { getAuthenticatedUser } from '@/lib/utils/auth';
+import { stripBase64Avatars } from '@/lib/avatarSanitize';
 
 export async function GET(request) {
     try {
@@ -40,7 +41,7 @@ export async function GET(request) {
             return s;
         });
 
-        return NextResponse.json(clean);
+        return NextResponse.json(stripBase64Avatars(clean));
     } catch (error) {
         console.error('Fetch stories error:', error);
         return NextResponse.json({ error: 'Server error' }, { status: 500 });

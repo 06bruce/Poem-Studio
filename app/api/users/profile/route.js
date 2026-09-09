@@ -30,6 +30,15 @@ export async function PATCH(request) {
         }
 
         if (avatar !== undefined) {
+            // The editor uploads images as base64 data URIs; a couple MB of
+            // *encoded text* stored directly on the user document gets
+            // reshipped on every poem/list that shows this author, which is
+            // exactly what was ballooning feed payloads. Cap it well below
+            // what a small profile-photo data URI needs (a few hundred KB),
+            // while still allowing plain avatar URLs of any length.
+            if (typeof avatar === 'string' && avatar.startsWith('data:') && avatar.length > 300_000) {
+                return NextResponse.json({ error: 'That image is too large — please use a smaller photo.' }, { status: 400 });
+            }
             user.avatar = avatar;
         }
 
