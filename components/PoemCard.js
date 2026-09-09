@@ -510,6 +510,8 @@ function PoemCard({
               <div key={idx} className={clsx('group/line relative flex items-center gap-4 transition-all duration-500', isVisible ? 'translate-y-0 opacity-100' : 'translate-y-2 opacity-0')} style={{ transitionDelay: isVisible ? `${Math.min(idx * 45, 600)}ms` : '0ms' }}>
                 <button
                   onClick={() => setSelectedLine(selectedLine === idx ? null : idx)}
+                  aria-label={line ? `Thoughts on: ${line}` : `Thoughts on line ${idx + 1} (blank line)`}
+                  aria-expanded={selectedLine === idx}
                   className={clsx(
                     'flex-1 rounded-lg px-3 py-1.5 text-left italic text-slate-200 transition-all duration-300 hover:bg-white/5 hover:opacity-100',
                     visual.typography === 'short' ? 'text-lg leading-relaxed sm:text-2xl sm:leading-relaxed' : visual.typography === 'medium' ? 'text-base leading-8 sm:text-lg' : 'text-base leading-7 sm:text-lg',

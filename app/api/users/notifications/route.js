@@ -4,6 +4,7 @@ import { verifyToken } from '@/lib/utils/auth';
 import Notification from '@/lib/models/Notification';
 import User from '@/lib/models/User';
 import Poem from '@/lib/models/Poem';
+import { stripBase64Avatars } from '@/lib/avatarSanitize';
 
 export async function GET(request) {
   try {
@@ -31,9 +32,10 @@ export async function GET(request) {
       .populate('sender', 'username avatar')
       .populate('poem', 'title')
       .sort({ createdAt: -1 })
-      .limit(50);
+      .limit(50)
+      .lean();
 
-    return NextResponse.json(notifications);
+    return NextResponse.json(stripBase64Avatars(notifications));
   } catch (error) {
     console.error('Notifications error:', error);
     return NextResponse.json(

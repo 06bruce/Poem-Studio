@@ -3,6 +3,7 @@ import connectDB from '@/lib/mongodb';
 import Poem from '@/lib/models/Poem';
 import { verifyToken } from '@/lib/utils/auth';
 import { invalidateCached } from '@/lib/serverCache';
+import { stripBase64Avatars } from '@/lib/avatarSanitize';
 
 // Get single poem
 export async function GET(request, { params }) {
@@ -23,7 +24,7 @@ export async function GET(request, { params }) {
       );
     }
 
-    return NextResponse.json(poem, {
+    return NextResponse.json(stripBase64Avatars(poem), {
       headers: {
         'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60'
       }

@@ -20,7 +20,17 @@ export async function GET(request) {
       {
         $project: {
           username: 1,
-          avatar: 1,
+          // avatar is stored as a plain String and can hold a base64 data URI
+          // (up to a few MB as text) from the profile editor's image upload —
+          // strip that here so a top-5 list never balloons; the UI already
+          // falls back to an initial-letter avatar when this is unset.
+          avatar: {
+            $cond: [
+              { $regexMatch: { input: { $ifNull: ['$avatar', ''] }, regex: '^data:' } },
+              '$$REMOVE',
+              '$avatar',
+            ],
+          },
           bio: 1,
           createdAt: 1,
           poemCount: { $size: '$poems' },

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Poem from '@/lib/models/Poem';
+import { stripBase64Avatars } from '@/lib/avatarSanitize';
 
 // Full annotation set for one poem, fetched lazily by the feed card once it
 // scrolls into view (and only when the list response's `annotationLines` says
@@ -20,7 +21,7 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: 'Poem not found' }, { status: 404 });
     }
 
-    return NextResponse.json({ annotations: poem.annotations || [] }, {
+    return NextResponse.json({ annotations: stripBase64Avatars(poem.annotations || []) }, {
       headers: {
         'Cache-Control': 'public, s-maxage=15, stale-while-revalidate=30',
       },

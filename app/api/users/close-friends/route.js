@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import User from '@/lib/models/User';
 import { getAuthenticatedUser } from '@/lib/utils/auth';
+import { stripBase64Avatars } from '@/lib/avatarSanitize';
 
 // GET — list current user's close friends
 export async function GET(request) {
@@ -16,7 +17,7 @@ export async function GET(request) {
             .populate('closeFriends', 'username avatar bio')
             .lean();
 
-        return NextResponse.json(fullUser?.closeFriends || []);
+        return NextResponse.json(stripBase64Avatars(fullUser?.closeFriends || []));
     } catch (error) {
         console.error('Fetch close friends error:', error);
         return NextResponse.json({ error: 'Server error' }, { status: 500 });

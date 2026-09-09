@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import User from '@/lib/models/User';
 import { getAuthenticatedUser } from '@/lib/utils/auth';
+import { stripBase64Avatars } from '@/lib/avatarSanitize';
 
 export async function GET(request) {
   try {
@@ -25,7 +26,7 @@ export async function GET(request) {
       .limit(10)
       .lean();
 
-    return NextResponse.json(users);
+    return NextResponse.json(stripBase64Avatars(users));
   } catch (error) {
     console.error('User search error:', error);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
